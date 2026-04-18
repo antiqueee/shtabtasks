@@ -29,7 +29,6 @@ const settingsItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const isSettings = pathname.startsWith('/app/settings')
 
   return (
     <aside className="flex flex-col w-60 shrink-0 border-r bg-sidebar min-h-screen">

@@ -8,7 +8,7 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "dev": "pnpm --filter './packages/*' build && pnpm --parallel --filter './apps/*' dev",
     "build": "pnpm --filter './packages/*' build && pnpm --filter './apps/*' build",
     "db:generate": "pnpm --filter @shtab/db generate",
     "db:migrate": "pnpm --filter @shtab/db migrate",
@@ -28,6 +28,10 @@
   ],
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^16.2.4",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   }
