@@ -27,7 +27,10 @@ RUN rm -rf apps/bot/node_modules/@shtab/db apps/bot/node_modules/@shtab/shared &
     cp -r packages/db/dist apps/bot/node_modules/@shtab/db/ && \
     cp packages/shared/package.json apps/bot/node_modules/@shtab/shared/ && \
     cp -r packages/shared/dist apps/bot/node_modules/@shtab/shared/
-RUN pnpm --filter @shtab/bot build
+# Diagnostics: verify @shtab dirs are real directories with correct content
+RUN ls -la apps/bot/node_modules/@shtab/ && ls apps/bot/node_modules/@shtab/db/
+# Run tsc directly (not via pnpm) to test if pnpm is the issue
+RUN cd apps/bot && node_modules/.bin/tsc -p tsconfig.json
 RUN ls apps/bot/dist
 
 FROM base AS runner
