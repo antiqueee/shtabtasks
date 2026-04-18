@@ -16,8 +16,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@shtab/db": ["../../packages/db/dist/index.d.ts"],
-      "@shtab/shared": ["../../packages/shared/dist/index.d.ts"]
+      "@workspace/db": ["../../packages/db/dist/index.d.ts"],
+      "@workspace/shared": ["../../packages/shared/dist/index.d.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

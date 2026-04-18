@@ -1,4 +1,4 @@
-import { db, assignees, parseBatches, parseBatchTasks, protocolChunks, protocols, tags, taskTemplates, tasks } from '@shtab/db'
+import { db, assignees, parseBatches, parseBatchTasks, protocolChunks, protocols, tags, taskTemplates, tasks } from '@workspace/db'
 import { and, asc, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 
 export const boardStatuses = ['todo', 'in_progress', 'done'] as const

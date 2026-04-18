@@ -10,8 +10,8 @@ import {
   tags,
   taskTemplates,
   tasks,
-} from '@shtab/db'
-import { answerWithRag, isValidRRule, parseProtocol } from '@shtab/shared'
+} from '@workspace/db'
+import { answerWithRag, isValidRRule, parseProtocol } from '@workspace/shared'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
