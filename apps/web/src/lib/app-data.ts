@@ -1,0 +1,193 @@
+import { db, assignees, tags, taskTemplates, tasks } from '@shtab/db'
+import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm'
+
+export const boardStatuses = ['todo', 'in_progress', 'done'] as const
+
+export type BoardStatus = (typeof boardStatuses)[number]
+type DbTask = typeof tasks.$inferSelect
+type DbAssignee = typeof assignees.$inferSelect
+type DbTag = typeof tags.$inferSelect
+type DbTemplate = typeof taskTemplates.$inferSelect
+
+export interface TaskView {
+  id: string
+  title: string
+  description: string | null
+  dueAt: Date
+  status: BoardStatus
+  source: string
+  completedAt: Date | null
+  assigneeId: string | null
+  assigneeName: string | null
+  assigneeColor: string | null
+  tagId: string | null
+  tagName: string | null
+  tagColor: string | null
+}
+
+function mapTaskRow(row: {
+  task: DbTask
+  assignee: DbAssignee | null
+  tag: DbTag | null
+}): TaskView {
+  return {
+    id: row.task.id,
+    title: row.task.title,
+    description: row.task.description,
+    dueAt: row.task.dueAt,
+    status: row.task.status === 'scheduled' ? 'todo' : row.task.status,
+    source: row.task.source,
+    completedAt: row.task.completedAt,
+    assigneeId: row.assignee?.id ?? null,
+    assigneeName: row.assignee?.name ?? null,
+    assigneeColor: row.assignee?.color ?? null,
+    tagId: row.tag?.id ?? null,
+    tagName: row.tag?.name ?? null,
+    tagColor: row.tag?.color ?? null,
+  }
+}
+
+export async function getBoardTasks(): Promise<Record<BoardStatus, TaskView[]>> {
+  const rows = await db
+    .select({
+      task: tasks,
+      assignee: assignees,
+      tag: tags,
+    })
+    .from(tasks)
+    .leftJoin(assignees, eq(tasks.assigneeId, assignees.id))
+    .leftJoin(tags, eq(tasks.tagId, tags.id))
+    .where(isNull(tasks.deletedAt))
+    .orderBy(asc(tasks.boardOrder), asc(tasks.dueAt), desc(tasks.createdAt))
+
+  const grouped: Record<BoardStatus, TaskView[]> = {
+    todo: [],
+    in_progress: [],
+    done: [],
+  }
+
+  for (const row of rows) {
+    const task = mapTaskRow(row)
+    grouped[task.status].push(task)
+  }
+
+  return grouped
+}
+
+export async function getCalendarTasks(daysAhead = 21): Promise<TaskView[]> {
+  const now = new Date()
+  const until = new Date(now)
+  until.setDate(until.getDate() + daysAhead)
+
+  const rows = await db
+    .select({
+      task: tasks,
+      assignee: assignees,
+      tag: tags,
+    })
+    .from(tasks)
+    .leftJoin(assignees, eq(tasks.assigneeId, assignees.id))
+    .leftJoin(tags, eq(tasks.tagId, tags.id))
+    .where(and(isNull(tasks.deletedAt), gte(tasks.dueAt, now), lte(tasks.dueAt, until)))
+    .orderBy(asc(tasks.dueAt), asc(tasks.boardOrder))
+
+  return rows.map(mapTaskRow)
+}
+
+export async function getDashboardData() {
+  const grouped = await getBoardTasks()
+  const allTasks = [...grouped.todo, ...grouped.in_progress, ...grouped.done]
+  const now = new Date()
+
+  const overdue = allTasks.filter((task) => task.status !== 'done' && task.dueAt < now)
+
+  const byAssignee = new Map<string, number>()
+  for (const task of allTasks) {
+    const key = task.assigneeName ?? 'Без ответственного'
+    byAssignee.set(key, (byAssignee.get(key) ?? 0) + 1)
+  }
+
+  return {
+    total: allTasks.length,
+    overdue: overdue.length,
+    todo: grouped.todo.length,
+    inProgress: grouped.in_progress.length,
+    done: grouped.done.length,
+    upcoming: allTasks
+      .filter((task) => task.status !== 'done')
+      .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
+      .slice(0, 5),
+    assigneeBreakdown: [...byAssignee.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count),
+  }
+}
+
+export async function getAssignees() {
+  return db.select().from(assignees).orderBy(asc(assignees.name))
+}
+
+export async function getTags() {
+  return db.select().from(tags).orderBy(asc(tags.name))
+}
+
+export async function getTaskTemplates(): Promise<
+  Array<DbTemplate & { assigneeName: string | null; tagName: string | null }>
+> {
+  const rows = await db
+    .select({
+      template: taskTemplates,
+      assignee: assignees,
+      tag: tags,
+    })
+    .from(taskTemplates)
+    .leftJoin(assignees, eq(taskTemplates.assigneeId, assignees.id))
+    .leftJoin(tags, eq(taskTemplates.tagId, tags.id))
+    .orderBy(desc(taskTemplates.createdAt))
+
+  return rows.map((row) => ({
+    ...row.template,
+    assigneeName: row.assignee?.name ?? null,
+    tagName: row.tag?.name ?? null,
+  }))
+}
+
+export async function getTaskFormOptions() {
+  const [assigneeRows, tagRows] = await Promise.all([getAssignees(), getTags()])
+
+  return {
+    assignees: assigneeRows,
+    tags: tagRows,
+  }
+}
+
+export function formatDateTime(date: Date): string {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Moscow',
+  }).format(date)
+}
+
+export function formatDateTimeLocalValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+export function getDefaultDueAt(): string {
+  const dueAt = new Date()
+  dueAt.setHours(18, 0, 0, 0)
+
+  if (dueAt.getTime() <= Date.now()) {
+    dueAt.setDate(dueAt.getDate() + 1)
+  }
+
+  return formatDateTimeLocalValue(dueAt)
+}

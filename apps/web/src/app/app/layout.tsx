@@ -1,6 +1,8 @@
 import { AppSidebar } from '@/components/AppSidebar'
 import { Toaster } from '@/components/ui/sonner'
 
+export const dynamic = 'force-dynamic'
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
