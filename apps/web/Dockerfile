@@ -24,6 +24,10 @@ RUN rm -rf apps/web/node_modules/@shtab/db apps/web/node_modules/@shtab/shared &
     cp -r packages/db/dist apps/web/node_modules/@shtab/db/ && \
     cp packages/shared/package.json apps/web/node_modules/@shtab/shared/ && \
     cp -r packages/shared/dist apps/web/node_modules/@shtab/shared/
+# apps/web/src/generated is gitignored; populate it from built dist so Next.js can resolve imports
+RUN mkdir -p apps/web/src/generated/db apps/web/src/generated/shared && \
+    cp -r packages/db/dist/. apps/web/src/generated/db/ && \
+    cp -r packages/shared/dist/. apps/web/src/generated/shared/
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @shtab/web build
 
