@@ -13,13 +13,15 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm --filter @shtab/bot build
+RUN pnpm --filter @shtab/db build && pnpm --filter @shtab/shared build && pnpm --filter @shtab/bot build
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 botuser
 COPY --from=builder --chown=botuser:nodejs /app/apps/bot/dist ./apps/bot/dist
+COPY --from=builder /app/packages/db ./packages/db
+COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/bot/node_modules ./apps/bot/node_modules
 USER botuser

@@ -13,13 +13,15 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm --filter @shtab/scheduler build
+RUN pnpm --filter @shtab/db build && pnpm --filter @shtab/shared build && pnpm --filter @shtab/scheduler build
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 scheduler
 COPY --from=builder --chown=scheduler:nodejs /app/apps/scheduler/dist ./apps/scheduler/dist
+COPY --from=builder /app/packages/db ./packages/db
+COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/scheduler/node_modules ./apps/scheduler/node_modules 2>/dev/null || true
 USER scheduler
