@@ -1,0 +1,27 @@
+{
+  "name": "@shtab/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx src/migrate.ts",
+    "push": "drizzle-kit push",
+    "seed": "tsx src/seed.ts",
+    "studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.42.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "bcrypt": "^5.1.1",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

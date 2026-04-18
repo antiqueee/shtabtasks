@@ -1,0 +1,34 @@
+{
+  "name": "shtab-tasks",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "build": "pnpm --filter './packages/*' build && pnpm --filter './apps/*' build",
+    "db:generate": "pnpm --filter @shtab/db generate",
+    "db:migrate": "pnpm --filter @shtab/db migrate",
+    "db:push": "pnpm --filter @shtab/db push",
+    "db:seed": "pnpm --filter @shtab/db seed",
+    "db:studio": "pnpm --filter @shtab/db studio",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "deploy": "./scripts/deploy.sh",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules
+.env
+.claude/
+.next
+dist
+*.log
+.turbo
+.cache
+*.tsbuildinfo
+caddy_data
+caddy_config
