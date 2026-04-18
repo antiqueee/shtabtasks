@@ -16,20 +16,25 @@ COPY --from=deps /app/apps/bot/node_modules ./apps/bot/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-RUN pnpm --filter @shtab/db build && pnpm --filter @shtab/shared build
+RUN pnpm --filter @shtab/db build
+RUN pnpm --filter @shtab/shared build
+RUN rm -rf apps/bot/node_modules/@shtab/db apps/bot/node_modules/@shtab/shared && \
+    mkdir -p apps/bot/node_modules/@shtab/db apps/bot/node_modules/@shtab/shared && \
+    cp packages/db/package.json apps/bot/node_modules/@shtab/db/ && \
+    cp -r packages/db/dist apps/bot/node_modules/@shtab/db/ && \
+    cp packages/shared/package.json apps/bot/node_modules/@shtab/shared/ && \
+    cp -r packages/shared/dist apps/bot/node_modules/@shtab/shared/
+RUN pnpm --filter @shtab/bot build
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 botuser
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/bot/node_modules ./apps/bot/node_modules
-COPY --from=builder /app/apps/bot/src ./apps/bot/src
-COPY --from=builder /app/apps/bot/package.json ./apps/bot/package.json
-COPY --from=builder /app/packages/db ./packages/db
-COPY --from=builder /app/packages/shared ./packages/shared
+COPY --from=builder --chown=botuser:nodejs /app/apps/bot/dist ./apps/bot/dist
+COPY --from=builder /app/apps/bot/node_modules ./apps/bot/node_modules
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
 USER botuser
-CMD ["node_modules/.bin/tsx", "apps/bot/src/index.ts"]
+CMD ["node", "apps/bot/dist/index.js"]
