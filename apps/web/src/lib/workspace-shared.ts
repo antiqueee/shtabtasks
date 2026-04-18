@@ -1,1 +1,1 @@
-export * from '../../../../packages/shared/dist/index.js'
+export * from '../generated/shared/index.js'

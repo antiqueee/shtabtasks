@@ -9,3 +9,4 @@ dist
 *.tsbuildinfo
 caddy_data
 caddy_config
+apps/web/src/generated

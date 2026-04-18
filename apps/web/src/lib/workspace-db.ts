@@ -1,1 +1,1 @@
-export * from '../../../../packages/db/dist/index.js'
+export * from '../generated/db/index.js'
