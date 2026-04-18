@@ -11,8 +11,7 @@ import {
   taskTemplates,
   tasks,
 } from '@shtab/db'
-import { answerWithRag, parseProtocol } from '@shtab/shared/llm'
-import { isValidRRule } from '@shtab/shared/utils/rrule'
+import { answerWithRag, isValidRRule, parseProtocol } from '@shtab/shared'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'

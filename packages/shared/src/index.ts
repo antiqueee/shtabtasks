@@ -1,6 +1,5 @@
 export * from './schemas.js'
 export * from './llm/openrouter.js'
 export * from './stt/yandex.js'
-export * from './embeddings/local.js'
 export * from './utils/dates.js'
 export * from './utils/rrule.js'

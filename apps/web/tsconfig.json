@@ -16,11 +16,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@shtab/db": ["../../packages/db/src/index.ts"],
-      "@shtab/shared": ["../../packages/shared/src/index.ts"],
-      "@shtab/shared/llm": ["../../packages/shared/src/llm/openrouter.ts"],
-      "@shtab/shared/stt": ["../../packages/shared/src/stt/yandex.ts"],
-      "@shtab/shared/utils/rrule": ["../../packages/shared/src/utils/rrule.ts"]
+      "@shtab/db": ["../../packages/db/dist/index.d.ts"],
+      "@shtab/shared": ["../../packages/shared/dist/index.d.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
