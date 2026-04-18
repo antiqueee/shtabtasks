@@ -5,16 +5,7 @@
     "rootDir": "./src",
     "composite": true,
     "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "paths": {
-      "@shtab/db": ["../../packages/db/dist/index.d.ts"],
-      "@shtab/shared": ["../../packages/shared/dist/index.d.ts"],
-      "@shtab/shared/llm": ["../../packages/shared/dist/llm/openrouter.d.ts"],
-      "@shtab/shared/stt": ["../../packages/shared/dist/stt/yandex.d.ts"],
-      "@shtab/shared/embeddings": ["../../packages/shared/dist/embeddings/local.d.ts"],
-      "@shtab/shared/utils/dates": ["../../packages/shared/dist/utils/dates.d.ts"],
-      "@shtab/shared/utils/rrule": ["../../packages/shared/dist/utils/rrule.d.ts"]
-    }
+    "moduleResolution": "NodeNext"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
