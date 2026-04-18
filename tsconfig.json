@@ -16,7 +16,8 @@
   "references": [
     { "path": "./packages/db" },
     { "path": "./packages/shared" },
-    { "path": "./apps/bot" }
+    { "path": "./apps/bot" },
+    { "path": "./apps/scheduler" }
   ],
   "exclude": ["node_modules"]
 }
