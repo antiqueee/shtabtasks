@@ -16,13 +16,9 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-# Build workspace packages so dist/ exists for type resolution
+# Build workspace packages first; symlinks in apps/web/node_modules/@shtab/* resolve to packages/*
 RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
-# Docker COPY dereferences symlinks, so apps/web/node_modules/@shtab/* have no dist yet.
-# Copy built dist into the dereferenced stubs so Next.js can resolve them.
-RUN cp -r packages/db/dist apps/web/node_modules/@shtab/db/ && \
-    cp -r packages/shared/dist apps/web/node_modules/@shtab/shared/
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @shtab/web build
 

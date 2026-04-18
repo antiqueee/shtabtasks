@@ -16,13 +16,9 @@ COPY --from=deps /app/apps/bot/node_modules ./apps/bot/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-# Build workspace packages
+# Build workspace packages first; symlinks in apps/bot/node_modules/@shtab/* resolve to packages/*
 RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
-# Docker COPY dereferences symlinks, so apps/bot/node_modules/@shtab/db has no dist yet.
-# Copy built dist into the dereferenced stubs so tsc and node can resolve them.
-RUN cp -r packages/db/dist apps/bot/node_modules/@shtab/db/ && \
-    cp -r packages/shared/dist apps/bot/node_modules/@shtab/shared/
 RUN pnpm --filter @shtab/bot build
 RUN ls apps/bot/dist
 
@@ -32,9 +28,11 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 botuser
 
 COPY --from=builder --chown=botuser:nodejs /app/apps/bot/dist ./apps/bot/dist
-# bot's direct deps (grammy, drizzle-orm, etc.) live here after Docker dereference
+# Copy bot's direct deps (grammy, drizzle-orm, etc.); @shtab/* entries are symlinks
 COPY --from=builder /app/apps/bot/node_modules ./apps/bot/node_modules
-# Overwrite workspace stubs with actual built packages
+# Remove @shtab symlinks (they point to packages/* which won't exist in runner)
+RUN rm -rf apps/bot/node_modules/@shtab/db apps/bot/node_modules/@shtab/shared
+# Place actual built packages where node resolves them
 COPY --from=builder /app/packages/db/dist ./apps/bot/node_modules/@shtab/db/dist
 COPY --from=builder /app/packages/db/package.json ./apps/bot/node_modules/@shtab/db/package.json
 COPY --from=builder /app/packages/shared/dist ./apps/bot/node_modules/@shtab/shared/dist
