@@ -16,9 +16,8 @@ COPY --from=deps /app/apps/bot/node_modules ./apps/bot/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-# Build workspace packages first; symlinks in apps/bot/node_modules/@shtab/* resolve to packages/*
-RUN pnpm --filter @shtab/db build
-RUN pnpm --filter @shtab/shared build
+# tsc -b with project references builds packages/db, packages/shared, then apps/bot
+# in dependency order without relying on node_modules symlinks for type resolution
 RUN pnpm --filter @shtab/bot build
 RUN ls apps/bot/dist
 

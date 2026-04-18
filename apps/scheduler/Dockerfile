@@ -16,9 +16,8 @@ COPY --from=deps /app/apps/scheduler/node_modules ./apps/scheduler/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-# Build workspace packages first; symlinks in apps/scheduler/node_modules/@shtab/* resolve to packages/*
-RUN pnpm --filter @shtab/db build
-RUN pnpm --filter @shtab/shared build
+# tsc -b with project references builds packages/db, packages/shared, then apps/scheduler
+# in dependency order without relying on node_modules symlinks for type resolution
 RUN pnpm --filter @shtab/scheduler build
 RUN ls apps/scheduler/dist
 
