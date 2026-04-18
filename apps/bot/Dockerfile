@@ -20,6 +20,8 @@ COPY . .
 # "paths" to map @shtab/* to these dist files, bypassing node_modules symlinks
 RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
+RUN ls packages/db/dist/ && ls packages/shared/dist/
+RUN cat apps/bot/tsconfig.json
 RUN pnpm --filter @shtab/bot build
 RUN ls apps/bot/dist
 
