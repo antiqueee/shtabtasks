@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { createTemplateAction } from '@/app/app/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,11 @@ import { RRULE_PRESETS } from '@shtab/shared/utils/rrule'
 
 const inputClassName =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+
+export const metadata: Metadata = {
+  title: 'Шаблоны задач',
+  description: 'RRULE-шаблоны для регулярных задач штаба.',
+}
 
 export default async function TemplatesPage() {
   const [{ assignees, tags }, templates] = await Promise.all([getTaskFormOptions(), getTaskTemplates()])

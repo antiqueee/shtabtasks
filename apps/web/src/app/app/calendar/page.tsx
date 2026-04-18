@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime, getCalendarTasks } from '@/lib/app-data'
@@ -9,6 +10,11 @@ function formatDayLabel(date: Date): string {
     month: 'long',
     timeZone: 'Europe/Moscow',
   }).format(date)
+}
+
+export const metadata: Metadata = {
+  title: 'Календарь',
+  description: 'Календарный вид задач штаба по дедлайнам.',
 }
 
 export default async function CalendarPage() {

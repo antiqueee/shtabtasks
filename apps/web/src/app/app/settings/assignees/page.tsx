@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { createAssigneeAction } from '@/app/app/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,6 +7,11 @@ import { getAssignees } from '@/lib/app-data'
 
 const inputClassName =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+
+export const metadata: Metadata = {
+  title: 'Ответственные',
+  description: 'Справочник ответственных для задач штаба.',
+}
 
 export default async function AssigneesPage() {
   const assignees = await getAssignees()

@@ -1,6 +1,12 @@
+import type { Metadata } from 'next'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime, getDashboardData } from '@/lib/app-data'
+
+export const metadata: Metadata = {
+  title: 'Дашборд',
+  description: 'Сводка по задачам, нагрузке и ближайшим дедлайнам штаба.',
+}
 
 export default async function DashboardPage() {
   const dashboard = await getDashboardData()

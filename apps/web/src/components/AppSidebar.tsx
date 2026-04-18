@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import {
   LayoutDashboard,
   Columns3,
@@ -81,9 +82,10 @@ export function AppSidebar() {
       </nav>
 
       <div className="px-2 py-4 border-t">
+        <ThemeToggle />
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          className="mt-1 flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
         >
           <LogOut className="w-4 h-4 shrink-0" />
           Выйти

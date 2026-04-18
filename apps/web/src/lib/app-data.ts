@@ -196,6 +196,41 @@ export async function getAssistantProtocolContext() {
   return chunks
 }
 
+export async function getAnalyticsData() {
+  const dashboard = await getDashboardData()
+  const imports = await getProtocolImports()
+
+  const [tasksBySourceRows, eventRows] = await Promise.all([
+    db
+      .select({
+        source: tasks.source,
+        count: sql<number>`count(*)`,
+      })
+      .from(tasks)
+      .where(isNull(tasks.deletedAt))
+      .groupBy(tasks.source)
+      .orderBy(desc(sql<number>`count(*)`)),
+    db
+      .select({
+        eventName: protocols.filename,
+        count: sql<number>`count(*)`,
+      })
+      .from(protocols)
+      .groupBy(protocols.filename),
+  ])
+
+  return {
+    dashboard,
+    totalImports: imports.length,
+    activeImports: imports.filter((item) => item.undoneAt === null).length,
+    extractedTasks: imports.reduce((sum, item) => sum + item.taskCount, 0),
+    tasksBySource: tasksBySourceRows,
+    protocolCount: eventRows.length,
+    completionRate:
+      dashboard.total > 0 ? Math.round((dashboard.done / dashboard.total) * 100) : 0,
+  }
+}
+
 export function formatDateTime(date: Date): string {
   return new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',

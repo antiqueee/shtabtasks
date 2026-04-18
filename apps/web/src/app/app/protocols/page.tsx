@@ -1,8 +1,14 @@
+import type { Metadata } from 'next'
 import { importProtocolAction, undoLastProtocolImportAction } from '@/app/app/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime, getProtocolImports } from '@/lib/app-data'
+
+export const metadata: Metadata = {
+  title: 'Протоколы',
+  description: 'Загрузка и разбор протоколов встреч в задачи с undo последнего импорта.',
+}
 
 export default async function ProtocolsPage() {
   const imports = await getProtocolImports()

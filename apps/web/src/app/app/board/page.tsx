@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { createTaskAction, updateTaskStatusAction } from '@/app/app/actions'
 import {
   boardStatuses,
@@ -28,6 +29,11 @@ const statusMeta: Record<BoardStatus, { title: string; description: string }> = 
 
 const selectClassName =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+
+export const metadata: Metadata = {
+  title: 'Канбан',
+  description: 'Канбан-доска задач штаба с ручным созданием и переводом по статусам.',
+}
 
 export default async function BoardPage() {
   const [{ assignees, tags }, groupedTasks] = await Promise.all([

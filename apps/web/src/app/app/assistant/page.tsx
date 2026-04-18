@@ -1,6 +1,12 @@
+import type { Metadata } from 'next'
 import { AssistantClient } from '@/components/AssistantClient'
 import { Card, CardContent } from '@/components/ui/card'
 import { getProtocolImports } from '@/lib/app-data'
+
+export const metadata: Metadata = {
+  title: 'Ассистент',
+  description: 'Вопросы к загруженным протоколам и решениям штаба.',
+}
 
 export default async function AssistantPage() {
   const imports = await getProtocolImports()
