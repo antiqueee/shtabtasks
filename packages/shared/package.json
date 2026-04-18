@@ -6,10 +6,15 @@
   "exports": {
     ".": "./src/index.ts",
     "./schemas": "./src/schemas.ts",
-    "./llm": "./src/llm.ts",
-    "./stt": "./src/stt.ts"
+    "./llm": "./src/llm/openrouter.ts",
+    "./stt": "./src/stt/yandex.ts",
+    "./embeddings": "./src/embeddings/local.ts",
+    "./utils/dates": "./src/utils/dates.ts",
+    "./utils/rrule": "./src/utils/rrule.ts"
   },
   "dependencies": {
+    "@xenova/transformers": "^2.17.2",
+    "rrule": "^2.8.1",
     "zod": "^3.24.3"
   },
   "devDependencies": {

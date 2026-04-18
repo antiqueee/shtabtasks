@@ -10,9 +10,13 @@ import {
   jsonb,
   index,
 } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
 
-export const taskStatusEnum = pgEnum('task_status', ['todo', 'in_progress', 'done'])
+export const taskStatusEnum = pgEnum('task_status', [
+  'todo',
+  'in_progress',
+  'done',
+  'scheduled',
+])
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -25,14 +29,14 @@ export const assignees = pgTable('assignees', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   tgUsername: text('tg_username'),
-  color: text('color').notNull(),
+  color: text('color').notNull().default('#888888'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const tags = pgTable('tags', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
-  color: text('color').notNull(),
+  color: text('color').notNull().default('#888888'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -68,6 +72,8 @@ export const tasks = pgTable(
     status: taskStatusEnum('status').notNull().default('todo'),
     source: text('source').notNull(),
     sourceProtocolId: uuid('source_protocol_id').references(() => protocols.id),
+    boardOrder: integer('board_order').notNull().default(0),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
@@ -75,21 +81,19 @@ export const tasks = pgTable(
     index('tasks_due_at_idx').on(table.dueAt),
     index('tasks_status_idx').on(table.status),
     index('tasks_assignee_id_idx').on(table.assigneeId),
+    index('tasks_template_due_idx').on(table.templateId, table.dueAt),
   ],
 )
 
-export const protocolChunks = pgTable(
-  'protocol_chunks',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    protocolId: uuid('protocol_id')
-      .notNull()
-      .references(() => protocols.id, { onDelete: 'cascade' }),
-    chunkText: text('chunk_text').notNull(),
-    embedding: text('embedding'),
-    chunkIndex: integer('chunk_index').notNull(),
-  },
-)
+export const protocolChunks = pgTable('protocol_chunks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  protocolId: uuid('protocol_id')
+    .notNull()
+    .references(() => protocols.id, { onDelete: 'cascade' }),
+  chunkText: text('chunk_text').notNull(),
+  embedding: text('embedding'),
+  chunkIndex: integer('chunk_index').notNull(),
+})
 
 export const parseBatches = pgTable('parse_batches', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -123,18 +127,24 @@ export const events = pgTable(
   },
   (table) => [
     index('events_created_at_idx').on(table.createdAt.desc()),
-    index('events_event_name_idx').on(table.eventName),
+    index('events_event_name_created_idx').on(table.eventName, table.createdAt.desc()),
   ],
 )
 
+// Types
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Assignee = typeof assignees.$inferSelect
+export type NewAssignee = typeof assignees.$inferInsert
 export type Tag = typeof tags.$inferSelect
+export type NewTag = typeof tags.$inferInsert
 export type TaskTemplate = typeof taskTemplates.$inferSelect
+export type NewTaskTemplate = typeof taskTemplates.$inferInsert
 export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
 export type Protocol = typeof protocols.$inferSelect
+export type NewProtocol = typeof protocols.$inferInsert
 export type ProtocolChunk = typeof protocolChunks.$inferSelect
 export type ParseBatch = typeof parseBatches.$inferSelect
 export type Event = typeof events.$inferSelect
+export type TaskStatus = (typeof taskStatusEnum.enumValues)[number]

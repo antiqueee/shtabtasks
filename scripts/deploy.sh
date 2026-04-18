@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SERVER="shtab"
-REMOTE_DIR="~/shtab-tasks"
-
 rsync -av --delete \
   --exclude node_modules --exclude .next --exclude dist \
-  --exclude .git --exclude '*.log' \
-  ./ "$SERVER:$REMOTE_DIR/"
+  --exclude .git --exclude '*.log' --exclude .env \
+  ./ shtab:~/shtab-tasks/
 
-ssh "$SERVER" "cd $REMOTE_DIR && docker compose pull && docker compose up -d --build && docker compose exec -T web pnpm db:migrate || true"
+scp .env shtab:~/shtab-tasks/.env
+
+ssh shtab 'cd ~/shtab-tasks && docker compose build && docker compose up -d && docker compose exec -T web pnpm --filter @shtab/db migrate'
+
+echo "Deployed."

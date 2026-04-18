@@ -1,7 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 DO $$ BEGIN
-  CREATE TYPE "task_status" AS ENUM ('todo', 'in_progress', 'done');
+  CREATE TYPE "task_status" AS ENUM ('todo', 'in_progress', 'done', 'scheduled');
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
@@ -17,14 +17,14 @@ CREATE TABLE IF NOT EXISTS "assignees" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "name" text NOT NULL,
   "tg_username" text,
-  "color" text NOT NULL,
+  "color" text NOT NULL DEFAULT '#888888',
   "created_at" timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS "tags" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "name" text NOT NULL UNIQUE,
-  "color" text NOT NULL,
+  "color" text NOT NULL DEFAULT '#888888',
   "created_at" timestamptz NOT NULL DEFAULT now()
 );
 
@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS "tasks" (
   "status" "task_status" NOT NULL DEFAULT 'todo',
   "source" text NOT NULL,
   "source_protocol_id" uuid REFERENCES "protocols"("id"),
+  "board_order" integer NOT NULL DEFAULT 0,
+  "deleted_at" timestamptz,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "completed_at" timestamptz
 );
@@ -65,6 +67,7 @@ CREATE TABLE IF NOT EXISTS "tasks" (
 CREATE INDEX IF NOT EXISTS "tasks_due_at_idx" ON "tasks" ("due_at");
 CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks" ("status");
 CREATE INDEX IF NOT EXISTS "tasks_assignee_id_idx" ON "tasks" ("assignee_id");
+CREATE INDEX IF NOT EXISTS "tasks_template_due_idx" ON "tasks" ("template_id", "due_at");
 
 CREATE TABLE IF NOT EXISTS "protocol_chunks" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -98,4 +101,4 @@ CREATE TABLE IF NOT EXISTS "events" (
 );
 
 CREATE INDEX IF NOT EXISTS "events_created_at_idx" ON "events" ("created_at" DESC);
-CREATE INDEX IF NOT EXISTS "events_event_name_idx" ON "events" ("event_name");
+CREATE INDEX IF NOT EXISTS "events_event_name_created_idx" ON "events" ("event_name", "created_at" DESC);

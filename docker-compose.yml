@@ -18,6 +18,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      platforms:
+        - linux/amd64
     restart: unless-stopped
     depends_on:
       postgres:
@@ -30,12 +32,15 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL_FAST: ${OPENROUTER_MODEL_FAST}
       OPENROUTER_MODEL_SMART: ${OPENROUTER_MODEL_SMART}
+      PUBLIC_URL: ${PUBLIC_URL}
       NODE_ENV: production
 
   bot:
     build:
       context: .
       dockerfile: apps/bot/Dockerfile
+      platforms:
+        - linux/amd64
     restart: unless-stopped
     depends_on:
       postgres:
@@ -48,6 +53,24 @@ services:
       OPENROUTER_MODEL_FAST: ${OPENROUTER_MODEL_FAST}
       YC_API_KEY: ${YC_API_KEY}
       YC_FOLDER_ID: ${YC_FOLDER_ID}
+      NODE_ENV: production
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: apps/scheduler/Dockerfile
+      platforms:
+        - linux/amd64
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_OWNER_ID: ${TELEGRAM_OWNER_ID}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      PUBLIC_URL: ${PUBLIC_URL}
       NODE_ENV: production
 
   caddy:
