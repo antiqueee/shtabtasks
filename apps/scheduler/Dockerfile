@@ -23,6 +23,5 @@ COPY --from=builder --chown=scheduler:nodejs /app/apps/scheduler/dist ./apps/sch
 COPY --from=builder /app/packages/db ./packages/db
 COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/scheduler/node_modules ./apps/scheduler/node_modules 2>/dev/null || true
 USER scheduler
 CMD ["node", "apps/scheduler/dist/index.js"]
