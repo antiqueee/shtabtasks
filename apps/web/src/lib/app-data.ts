@@ -1,5 +1,5 @@
-import { db, assignees, tags, taskTemplates, tasks } from '@shtab/db'
-import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm'
+import { db, assignees, parseBatches, parseBatchTasks, protocolChunks, protocols, tags, taskTemplates, tasks } from '@shtab/db'
+import { and, asc, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
 
 export const boardStatuses = ['todo', 'in_progress', 'done'] as const
 
@@ -159,6 +159,41 @@ export async function getTaskFormOptions() {
     assignees: assigneeRows,
     tags: tagRows,
   }
+}
+
+export async function getProtocolImports() {
+  const rows = await db
+    .select({
+      batchId: parseBatches.id,
+      createdAt: parseBatches.createdAt,
+      undoneAt: parseBatches.undoneAt,
+      protocolId: protocols.id,
+      filename: protocols.filename,
+      taskCount: sql<number>`count(${parseBatchTasks.taskId})`,
+    })
+    .from(parseBatches)
+    .innerJoin(protocols, eq(parseBatches.protocolId, protocols.id))
+    .leftJoin(parseBatchTasks, eq(parseBatchTasks.batchId, parseBatches.id))
+    .groupBy(parseBatches.id, protocols.id)
+    .orderBy(desc(parseBatches.createdAt))
+
+  return rows
+}
+
+export async function getAssistantProtocolContext() {
+  const chunks = await db
+    .select({
+      chunkText: protocolChunks.chunkText,
+      protocolFilename: protocols.filename,
+      chunkIndex: protocolChunks.chunkIndex,
+      uploadedAt: protocols.uploadedAt,
+    })
+    .from(protocolChunks)
+    .innerJoin(protocols, eq(protocolChunks.protocolId, protocols.id))
+    .orderBy(desc(protocols.uploadedAt), asc(protocolChunks.chunkIndex))
+    .limit(200)
+
+  return chunks
 }
 
 export function formatDateTime(date: Date): string {

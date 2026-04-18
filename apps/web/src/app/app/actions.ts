@@ -1,10 +1,22 @@
 'use server'
 
-import { db, assignees, tags, taskTemplates, tasks } from '@shtab/db'
+import {
+  db,
+  assignees,
+  parseBatches,
+  parseBatchTasks,
+  protocolChunks,
+  protocols,
+  tags,
+  taskTemplates,
+  tasks,
+} from '@shtab/db'
+import { parseProtocol } from '@shtab/shared/llm'
 import { isValidRRule } from '@shtab/shared/utils/rrule'
-import { eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { chunkProtocolText, parseProtocolInput } from '@/lib/protocols'
 
 const boardStatusSchema = z.enum(['todo', 'in_progress', 'done'])
 
@@ -59,6 +71,66 @@ function revalidateTaskPages() {
   revalidatePath('/app/board')
   revalidatePath('/app/calendar')
   revalidatePath('/app/dashboard')
+}
+
+function revalidateProtocolPages() {
+  revalidatePath('/app/protocols')
+  revalidatePath('/app/assistant')
+  revalidateTaskPages()
+}
+
+async function findOrCreateAssigneeId(name: string | null | undefined) {
+  if (!name?.trim()) {
+    return null
+  }
+
+  const normalized = name.trim().toLocaleLowerCase('ru-RU')
+  const rows = await db.select().from(assignees).orderBy(asc(assignees.name))
+  const found = rows.find((row) => row.name.trim().toLocaleLowerCase('ru-RU') === normalized)
+
+  if (found) {
+    return found.id
+  }
+
+  const [created] = await db
+    .insert(assignees)
+    .values({
+      name: name.trim(),
+      color: '#64748b',
+    })
+    .returning({ id: assignees.id })
+
+  return created?.id ?? null
+}
+
+async function findOrCreateTagId(name: string | null | undefined) {
+  if (!name?.trim()) {
+    return null
+  }
+
+  const normalized = name.trim().toLocaleLowerCase('ru-RU')
+  const rows = await db.select().from(tags).orderBy(asc(tags.name))
+  const found = rows.find((row) => row.name.trim().toLocaleLowerCase('ru-RU') === normalized)
+
+  if (found) {
+    return found.id
+  }
+
+  const inserted = await db
+    .insert(tags)
+    .values({
+      name: name.trim(),
+      color: '#0f766e',
+    })
+    .onConflictDoNothing()
+    .returning({ id: tags.id })
+
+  if (inserted[0]?.id) {
+    return inserted[0].id
+  }
+
+  const [created] = await db.select().from(tags).where(eq(tags.name, name.trim())).limit(1)
+  return created?.id ?? null
 }
 
 export async function createTaskAction(formData: FormData) {
@@ -173,4 +245,121 @@ export async function createTemplateAction(formData: FormData) {
   })
 
   revalidatePath('/app/settings/templates')
+}
+
+export async function importProtocolAction(formData: FormData) {
+  const fileEntry = formData.get('protocolFile')
+  const pastedText = String(formData.get('protocolText') ?? '')
+  const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null
+
+  const parsedInput = await parseProtocolInput(file, pastedText)
+  if (!parsedInput.text) {
+    return
+  }
+
+  const [protocol] = await db
+    .insert(protocols)
+    .values({
+      filename: parsedInput.filename,
+      originalText: parsedInput.text,
+    })
+    .returning({ id: protocols.id, filename: protocols.filename })
+
+  if (!protocol) {
+    return
+  }
+
+  const chunks = chunkProtocolText(parsedInput.text)
+  if (chunks.length > 0) {
+    await db.insert(protocolChunks).values(
+      chunks.map((chunkText, chunkIndex) => ({
+        protocolId: protocol.id,
+        chunkText,
+        chunkIndex,
+        embedding: null,
+      })),
+    )
+  }
+
+  const [batch] = await db
+    .insert(parseBatches)
+    .values({
+      protocolId: protocol.id,
+    })
+    .returning({ id: parseBatches.id })
+
+  if (!batch) {
+    return
+  }
+
+  const parsed = await parseProtocol(parsedInput.text)
+  for (const item of parsed.tasks) {
+    if (!item.title?.trim()) {
+      continue
+    }
+
+    const assigneeId = await findOrCreateAssigneeId(item.assigneeName)
+    const tagId = await findOrCreateTagId(item.tagName)
+    const dueAt = item.dueAt ? new Date(item.dueAt) : null
+
+    const [task] = await db
+      .insert(tasks)
+      .values({
+        templateId: null,
+        title: item.title.trim(),
+        description: item.description?.trim() || null,
+        assigneeId,
+        tagId,
+        dueAt: dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : new Date(),
+        status: 'todo',
+        source: parsedInput.source,
+        sourceProtocolId: protocol.id,
+      })
+      .returning({ id: tasks.id })
+
+    if (task) {
+      await db.insert(parseBatchTasks).values({
+        batchId: batch.id,
+        taskId: task.id,
+      })
+    }
+  }
+
+  revalidateProtocolPages()
+}
+
+export async function undoLastProtocolImportAction() {
+  const [lastBatch] = await db
+    .select()
+    .from(parseBatches)
+    .where(isNull(parseBatches.undoneAt))
+    .orderBy(desc(parseBatches.createdAt))
+    .limit(1)
+
+  if (!lastBatch) {
+    return
+  }
+
+  const linkedTasks = await db
+    .select({ taskId: parseBatchTasks.taskId })
+    .from(parseBatchTasks)
+    .where(eq(parseBatchTasks.batchId, lastBatch.id))
+
+  if (linkedTasks.length > 0) {
+    await db
+      .update(tasks)
+      .set({
+        deletedAt: new Date(),
+      })
+      .where(and(inArray(tasks.id, linkedTasks.map((item) => item.taskId)), isNull(tasks.deletedAt)))
+  }
+
+  await db
+    .update(parseBatches)
+    .set({
+      undoneAt: new Date(),
+    })
+    .where(eq(parseBatches.id, lastBatch.id))
+
+  revalidateProtocolPages()
 }
