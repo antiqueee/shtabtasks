@@ -11,12 +11,13 @@ import {
   taskTemplates,
   tasks,
 } from '@shtab/db'
-import { parseProtocol } from '@shtab/shared/llm'
+import { answerWithRag, parseProtocol } from '@shtab/shared/llm'
 import { isValidRRule } from '@shtab/shared/utils/rrule'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { chunkProtocolText, parseProtocolInput } from '@/lib/protocols'
+import { pickRelevantChunks } from '@/lib/assistant'
 
 const boardStatusSchema = z.enum(['todo', 'in_progress', 'done'])
 
@@ -362,4 +363,50 @@ export async function undoLastProtocolImportAction() {
     .where(eq(parseBatches.id, lastBatch.id))
 
   revalidateProtocolPages()
+}
+
+export interface AssistantAnswerState {
+  question: string
+  answer: string
+  sources: Array<{ filename: string; snippet: string }>
+}
+
+export async function askAssistantAction(
+  _prevState: AssistantAnswerState | null,
+  formData: FormData,
+): Promise<AssistantAnswerState> {
+  const question = String(formData.get('question') ?? '').trim()
+  if (!question) {
+    return {
+      question: '',
+      answer: 'Нужен вопрос по загруженным протоколам.',
+      sources: [],
+    }
+  }
+
+  const chunks = await db
+    .select({
+      chunkText: protocolChunks.chunkText,
+      protocolFilename: protocols.filename,
+    })
+    .from(protocolChunks)
+    .innerJoin(protocols, eq(protocolChunks.protocolId, protocols.id))
+    .orderBy(desc(protocols.uploadedAt), asc(protocolChunks.chunkIndex))
+    .limit(250)
+
+  const relevant = pickRelevantChunks(question, chunks)
+
+  const result = await answerWithRag(
+    question,
+    relevant.map((item) => ({
+      text: item.chunkText,
+      protocolFilename: item.protocolFilename,
+    })),
+  )
+
+  return {
+    question,
+    answer: result.answer,
+    sources: result.sources,
+  }
 }
