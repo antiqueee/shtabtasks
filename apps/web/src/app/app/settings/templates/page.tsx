@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getTaskFormOptions, getTaskTemplates } from '@/lib/app-data'
-import { RRULE_PRESETS } from '@workspace/shared'
+import { RRULE_PRESETS } from '../../../../../../../packages/shared/dist/index.js'
 
 const inputClassName =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
