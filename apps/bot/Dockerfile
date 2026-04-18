@@ -16,8 +16,10 @@ COPY --from=deps /app/apps/bot/node_modules ./apps/bot/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-# tsc -b with project references builds packages/db, packages/shared, then apps/bot
-# in dependency order without relying on node_modules symlinks for type resolution
+# Pre-build workspace packages so their dist/ exists; apps/bot/tsconfig uses
+# "paths" to map @shtab/* to these dist files, bypassing node_modules symlinks
+RUN pnpm --filter @shtab/db build
+RUN pnpm --filter @shtab/shared build
 RUN pnpm --filter @shtab/bot build
 RUN ls apps/bot/dist
 

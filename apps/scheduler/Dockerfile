@@ -16,8 +16,10 @@ COPY --from=deps /app/apps/scheduler/node_modules ./apps/scheduler/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-# tsc -b with project references builds packages/db, packages/shared, then apps/scheduler
-# in dependency order without relying on node_modules symlinks for type resolution
+# Pre-build workspace packages so their dist/ exists; apps/scheduler/tsconfig uses
+# "paths" to map @shtab/* to these dist files, bypassing node_modules symlinks
+RUN pnpm --filter @shtab/db build
+RUN pnpm --filter @shtab/shared build
 RUN pnpm --filter @shtab/scheduler build
 RUN ls apps/scheduler/dist
 
