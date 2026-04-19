@@ -6,7 +6,9 @@ cd "$ROOT_DIR"
 
 rsync -av --delete --delete-excluded \
   --exclude node_modules --exclude .next --exclude dist \
-  --exclude .git --exclude .claude --exclude '*.log' --exclude .env \
+  --exclude .git --exclude .claude --exclude '.DS_Store' \
+  --exclude '*.log' --exclude '*.tsbuildinfo' --exclude .env \
+  --exclude apps/web/src/generated \
   ./ shtab:~/shtab-tasks/
 
 scp .env shtab:~/shtab-tasks/.env

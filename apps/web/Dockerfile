@@ -27,7 +27,8 @@ RUN rm -rf apps/web/node_modules/@shtab/db apps/web/node_modules/@shtab/shared &
 # apps/web/src/generated is gitignored; populate it from built dist so Next.js can resolve imports.
 # Run next build directly (not via pnpm script) to skip prepare-workspace-imports.mjs which uses
 # Node cpSync and would wipe and re-copy — shell cp is simpler and reliable.
-RUN mkdir -p apps/web/src/generated/db apps/web/src/generated/shared && \
+RUN rm -rf apps/web/src/generated && \
+    mkdir -p apps/web/src/generated/db apps/web/src/generated/shared && \
     cp -r packages/db/dist/. apps/web/src/generated/db/ && \
     cp -r packages/shared/dist/. apps/web/src/generated/shared/
 ENV NEXT_TELEMETRY_DISABLED=1

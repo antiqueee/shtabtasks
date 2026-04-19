@@ -1,8 +1,10 @@
 node_modules
 .git
+.DS_Store
 .next
 dist
 *.log
 .env
 .claude
 *.tsbuildinfo
+apps/web/src/generated
