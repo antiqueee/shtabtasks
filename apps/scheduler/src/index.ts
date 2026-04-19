@@ -1,10 +1,14 @@
+import https from 'https'
 import { db, events, taskTemplates, tasks } from '@shtab/db'
 import { generateInstances } from '@shtab/shared/utils/rrule'
 import { and, asc, eq, gte, isNotNull, isNull, lt, ne, or } from 'drizzle-orm'
 import cron from 'node-cron'
+import { SocksProxyAgent } from 'socks-proxy-agent'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 const ownerId = process.env.TELEGRAM_OWNER_ID
+const socksProxy = process.env.SOCKS_PROXY_URL
+const proxyAgent = socksProxy ? new SocksProxyAgent(socksProxy) : undefined
 
 if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set')
 if (!ownerId) throw new Error('TELEGRAM_OWNER_ID is not set')
@@ -27,21 +31,42 @@ function formatDateTime(date: Date): string {
 }
 
 async function sendTelegramMessage(text: string) {
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      chat_id: ownerId,
-      text,
-    }),
+  const body = JSON.stringify({
+    chat_id: ownerId,
+    text,
   })
 
-  if (!response.ok) {
-    const message = await response.text()
-    throw new Error(`Telegram sendMessage failed: ${response.status} ${message}`)
-  }
+  await new Promise<void>((resolve, reject) => {
+    const request = https.request(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        agent: proxyAgent,
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+
+        response.on('data', (chunk: Buffer) => chunks.push(chunk))
+        response.on('end', () => {
+          if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
+            resolve()
+            return
+          }
+
+          const message = Buffer.concat(chunks).toString('utf-8')
+          reject(new Error(`Telegram sendMessage failed: ${response.statusCode} ${message}`))
+        })
+      },
+    )
+
+    request.on('error', reject)
+    request.write(body)
+    request.end()
+  })
 }
 
 async function generateRecurringTasks() {

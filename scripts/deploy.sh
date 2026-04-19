@@ -8,6 +8,6 @@ rsync -av --delete \
 
 scp .env shtab:~/shtab-tasks/.env
 
-ssh shtab 'cd ~/shtab-tasks && docker compose build && docker compose up -d && docker compose exec -T web pnpm --filter @shtab/db migrate'
+ssh shtab 'cd ~/shtab-tasks && docker compose build && docker compose up -d && docker compose exec -T postgres sh -lc "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"" < packages/db/drizzle/0001_nullable_task_due_at.sql'
 
 echo "Deployed."

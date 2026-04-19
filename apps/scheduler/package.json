@@ -13,7 +13,8 @@
     "@shtab/db": "workspace:*",
     "@shtab/shared": "workspace:*",
     "drizzle-orm": "^0.42.0",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "socks-proxy-agent": "^8.0.5"
   },
   "devDependencies": {
     "@types/node-cron": "^3.0.11",
