@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-rsync -av --delete \
+rsync -av --delete --delete-excluded \
   --exclude node_modules --exclude .next --exclude dist \
-  --exclude .git --exclude '*.log' --exclude .env \
+  --exclude .git --exclude .claude --exclude '*.log' --exclude .env \
   ./ shtab:~/shtab-tasks/
 
 scp .env shtab:~/shtab-tasks/.env
