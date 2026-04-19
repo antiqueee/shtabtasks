@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
-import { createTaskAction, updateTaskStatusAction } from '@/app/app/actions'
+import { createTaskAction, updateTaskAction, updateTaskStatusAction } from '@/app/app/actions'
 import {
   boardStatuses,
   formatDateTime,
+  formatDateTimeLocalValue,
   getBoardTasks,
   getDefaultDueAt,
   getTaskFormOptions,
@@ -59,7 +60,7 @@ export default async function BoardPage() {
           </div>
           <div className="w-40">
             <label className="text-xs text-muted-foreground mb-1 block">Дедлайн</label>
-            <input name="dueAt" type="datetime-local" required defaultValue={getDefaultDueAt()} className={inputCls} />
+            <input name="dueAt" type="datetime-local" placeholder={getDefaultDueAt()} className={inputCls} />
           </div>
           <div className="w-36">
             <label className="text-xs text-muted-foreground mb-1 block">Ответственный</label>
@@ -143,6 +144,49 @@ export default async function BoardPage() {
                           </span>
                         ) : null}
                       </div>
+
+                      <details className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
+                        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                          Редактировать
+                        </summary>
+                        <form action={updateTaskAction} className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <input type="hidden" name="status" value={task.status} />
+                          <input name="title" required defaultValue={task.title} className={inputCls} />
+                          <input
+                            name="dueAt"
+                            type="datetime-local"
+                            defaultValue={task.dueAt ? formatDateTimeLocalValue(task.dueAt) : ''}
+                            className={inputCls}
+                          />
+                          <input
+                            name="assigneeName"
+                            list="assignees-list"
+                            defaultValue={task.assigneeName ?? ''}
+                            placeholder="Ответственный"
+                            className={inputCls}
+                          />
+                          <input
+                            name="tagName"
+                            list="tags-list"
+                            defaultValue={task.tagName ?? ''}
+                            placeholder="Тег"
+                            className={inputCls}
+                          />
+                          <textarea
+                            name="description"
+                            defaultValue={task.description ?? ''}
+                            placeholder="Описание"
+                            className="min-h-16 rounded border border-input bg-background px-2.5 py-1 text-sm sm:col-span-2"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted sm:col-span-2"
+                          >
+                            Сохранить
+                          </button>
+                        </form>
+                      </details>
 
                       <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/50">
                         {boardStatuses

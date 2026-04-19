@@ -7,6 +7,7 @@ export const taskSourceSchema = z.enum([
   'text_web',
   'protocol_docx',
   'protocol_xlsx',
+  'protocol_pdf',
   'protocol_paste',
   'manual',
 ])
@@ -20,7 +21,7 @@ export const taskSchema = z.object({
   description: z.string().nullable(),
   assigneeId: z.string().uuid().nullable(),
   tagId: z.string().uuid().nullable(),
-  dueAt: z.coerce.date(),
+  dueAt: z.coerce.date().nullable(),
   status: taskStatusSchema,
   source: taskSourceSchema,
   sourceProtocolId: z.string().uuid().nullable(),

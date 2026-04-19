@@ -1,5 +1,5 @@
 import { db, assignees, parseBatches, parseBatchTasks, protocolChunks, protocols, tags, taskTemplates, tasks } from '@/lib/workspace-db'
-import { and, asc, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm'
 
 export const boardStatuses = ['todo', 'in_progress', 'done'] as const
 
@@ -13,7 +13,7 @@ export interface TaskView {
   id: string
   title: string
   description: string | null
-  dueAt: Date
+  dueAt: Date | null
   status: BoardStatus
   source: string
   completedAt: Date | null
@@ -88,7 +88,7 @@ export async function getCalendarTasks(daysAhead = 21): Promise<TaskView[]> {
     .from(tasks)
     .leftJoin(assignees, eq(tasks.assigneeId, assignees.id))
     .leftJoin(tags, eq(tasks.tagId, tags.id))
-    .where(and(isNull(tasks.deletedAt), gte(tasks.dueAt, now), lte(tasks.dueAt, until)))
+    .where(and(isNull(tasks.deletedAt), isNotNull(tasks.dueAt), gte(tasks.dueAt, now), lte(tasks.dueAt, until)))
     .orderBy(asc(tasks.dueAt), asc(tasks.boardOrder))
 
   return rows.map(mapTaskRow)
@@ -103,7 +103,7 @@ export async function getMonthTasks(year: number, month: number): Promise<TaskVi
     .from(tasks)
     .leftJoin(assignees, eq(tasks.assigneeId, assignees.id))
     .leftJoin(tags, eq(tasks.tagId, tags.id))
-    .where(and(isNull(tasks.deletedAt), gte(tasks.dueAt, from), lte(tasks.dueAt, to)))
+    .where(and(isNull(tasks.deletedAt), isNotNull(tasks.dueAt), gte(tasks.dueAt, from), lte(tasks.dueAt, to)))
     .orderBy(asc(tasks.dueAt))
 
   return rows.map(mapTaskRow)
@@ -114,7 +114,7 @@ export async function getDashboardData() {
   const allTasks = [...grouped.todo, ...grouped.in_progress, ...grouped.done]
   const now = new Date()
 
-  const overdue = allTasks.filter((task) => task.status !== 'done' && task.dueAt < now)
+  const overdue = allTasks.filter((task) => task.status !== 'done' && task.dueAt && task.dueAt < now)
 
   const byAssignee = new Map<string, number>()
   for (const task of allTasks) {
@@ -130,7 +130,8 @@ export async function getDashboardData() {
     done: grouped.done.length,
     upcoming: allTasks
       .filter((task) => task.status !== 'done')
-      .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
+      .filter((task) => task.dueAt)
+      .sort((a, b) => (a.dueAt?.getTime() ?? 0) - (b.dueAt?.getTime() ?? 0))
       .slice(0, 5),
     assigneeBreakdown: [...byAssignee.entries()]
       .map(([name, count]) => ({ name, count }))
@@ -246,7 +247,9 @@ export async function getAnalyticsData() {
   }
 }
 
-export function formatDateTime(date: Date): string {
+export function formatDateTime(date: Date | null): string {
+  if (!date) return 'Без дедлайна'
+
   return new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
     month: 'long',

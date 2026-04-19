@@ -19,7 +19,7 @@ export default async function ProtocolsPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold tracking-tight">Протоколы</h1>
         <p className="text-muted-foreground">
-          Загружай `.docx`, `.xlsx` или вставляй текст. Система извлечёт задачи через LLM и сохранит историю импорта.
+          Загружай `.docx`, `.xlsx`, `.pdf` или вставляй текст. Система извлечёт задачи через LLM и сохранит историю импорта.
         </p>
       </div>
 
@@ -35,7 +35,7 @@ export default async function ProtocolsPage() {
             <input
               name="protocolFile"
               type="file"
-              accept=".docx,.xlsx,.xls,.txt,.md"
+              accept=".docx,.xlsx,.xls,.pdf,.txt,.md"
               className="block w-full text-sm text-muted-foreground"
             />
             <textarea

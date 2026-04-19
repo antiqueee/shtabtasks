@@ -1,11 +1,13 @@
 import https from 'https'
-import { db, assignees, events, tags, tasks } from '@shtab/db'
+import { db, assignees, events, tags, taskTemplates, tasks } from '@shtab/db'
 import { parseProtocol, parseQuickTask } from '@shtab/shared/llm'
 import { transcribeAudio } from '@shtab/shared/stt'
 import { asc, eq } from 'drizzle-orm'
 import { Bot, GrammyError, HttpError } from 'grammy'
 import mammoth from 'mammoth'
+import { PDFParse } from 'pdf-parse'
 import { SocksProxyAgent } from 'socks-proxy-agent'
+import * as XLSX from 'xlsx'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 const ownerId = process.env.TELEGRAM_OWNER_ID
@@ -29,14 +31,16 @@ function getFallbackDueAt(): Date {
   return dueAt
 }
 
-function parseDueAt(value?: string): Date {
-  if (!value) return getFallbackDueAt()
+function parseDueAt(value?: string): Date | null {
+  if (!value) return null
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return getFallbackDueAt()
+  if (Number.isNaN(date.getTime())) return null
   return date
 }
 
-function formatDateTime(date: Date): string {
+function formatDateTime(date: Date | null): string {
+  if (!date) return 'без дедлайна'
+
   return new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
     month: '2-digit',
@@ -96,12 +100,33 @@ async function findOrCreateTag(name?: string): Promise<{ id: string; name: strin
 async function storeTask(
   text: string,
   source: 'text_tg' | 'voice_tg',
-): Promise<{ title: string; dueAt: Date; assigneeName: string | null; tagName: string | null }> {
+): Promise<{ title: string; dueAt: Date | null; assigneeName: string | null; tagName: string | null }> {
   const parsed = await parseQuickTask(text)
   const title = parsed.title?.trim() || text.trim()
   const dueAt = parseDueAt(parsed.dueAt)
   const assignee = await findOrCreateAssignee(parsed.assigneeName)
   const tag = await findOrCreateTag(parsed.tagName)
+
+  if (parsed.isRecurring && parsed.recurrenceRule?.trim()) {
+    const [template] = await db
+      .insert(taskTemplates)
+      .values({
+        title,
+        description: parsed.description?.trim() || null,
+        assigneeId: assignee?.id ?? null,
+        tagId: tag?.id ?? null,
+        recurrenceRule: parsed.recurrenceRule.trim(),
+        activeWindowDays: 90,
+      })
+      .returning({ id: taskTemplates.id })
+
+    await db.insert(events).values({
+      eventName: 'recurring_task_created_from_bot',
+      payload: { templateId: template?.id ?? null, source, recurrenceRule: parsed.recurrenceRule },
+    })
+
+    return { title: `${title} (регулярная)`, dueAt, assigneeName: assignee?.name ?? null, tagName: tag?.name ?? null }
+  }
 
   const [task] = await db
     .insert(tasks)
@@ -126,7 +151,7 @@ async function storeTask(
   return { title: task.title, dueAt: task.dueAt, assigneeName: assignee?.name ?? null, tagName: tag?.name ?? null }
 }
 
-function formatTaskReply(task: { title: string; dueAt: Date; assigneeName: string | null; tagName: string | null }, transcript?: string): string {
+function formatTaskReply(task: { title: string; dueAt: Date | null; assigneeName: string | null; tagName: string | null }, transcript?: string): string {
   const lines = [
     `Задача создана: ${task.title}`,
     `Дедлайн: ${formatDateTime(task.dueAt)}`,
@@ -135,6 +160,31 @@ function formatTaskReply(task: { title: string; dueAt: Date; assigneeName: strin
   ]
   if (transcript) lines.push('', `Расшифровка: ${transcript}`)
   return lines.join('\n')
+}
+
+function readXlsx(buffer: Buffer): string {
+  const workbook = XLSX.read(buffer, { type: 'buffer' })
+  const parts: string[] = []
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName]
+    const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(sheet, {
+      header: 1,
+      raw: false,
+      blankrows: false,
+    })
+
+    parts.push(`# Лист: ${sheetName}`)
+    for (const row of rows) {
+      const line = row
+        .map((cell) => (cell == null ? '' : String(cell).trim()))
+        .filter(Boolean)
+        .join(' | ')
+      if (line) parts.push(line)
+    }
+  }
+
+  return parts.join('\n').trim()
 }
 
 function downloadBuffer(url: string, agent?: https.Agent): Promise<Buffer> {
@@ -201,10 +251,13 @@ bot.on('message:document', async (ctx) => {
   const doc = ctx.message.document
   const name = doc.file_name ?? ''
   const isDocx = name.toLowerCase().endsWith('.docx')
+  const isXlsx = name.toLowerCase().endsWith('.xlsx') || name.toLowerCase().endsWith('.xls')
+  const isPdf = name.toLowerCase().endsWith('.pdf')
   const isTxt = name.toLowerCase().endsWith('.txt') || name.toLowerCase().endsWith('.md')
+  const protocolSource = isDocx ? 'protocol_docx' : isXlsx ? 'protocol_xlsx' : isPdf ? 'protocol_pdf' : 'protocol_paste'
 
-  if (!isDocx && !isTxt) {
-    await ctx.reply('Поддерживаются только .docx и .txt файлы с протоколами.')
+  if (!isDocx && !isXlsx && !isPdf && !isTxt) {
+    await ctx.reply('Поддерживаются .docx, .xlsx, .pdf и .txt файлы с протоколами.')
     return
   }
 
@@ -220,6 +273,13 @@ bot.on('message:document', async (ctx) => {
   if (isDocx) {
     const result = await mammoth.extractRawText({ buffer: buf })
     text = result.value.trim()
+  } else if (isXlsx) {
+    text = readXlsx(buf)
+  } else if (isPdf) {
+    const parser = new PDFParse({ data: buf })
+    const result = await parser.getText()
+    await parser.destroy()
+    text = result.text.trim()
   } else {
     text = buf.toString('utf-8').trim()
   }
@@ -237,16 +297,16 @@ bot.on('message:document', async (ctx) => {
 
     const assignee = await findOrCreateAssignee(item.assigneeName ?? undefined)
     const tag = await findOrCreateTag(item.tagName ?? undefined)
-    const dueAt = item.dueAt ? new Date(item.dueAt) : getFallbackDueAt()
+    const dueAt = item.dueAt ? new Date(item.dueAt) : null
 
     await db.insert(tasks).values({
       title: item.title.trim(),
       description: item.description?.trim() || null,
       assigneeId: assignee?.id ?? null,
       tagId: tag?.id ?? null,
-      dueAt: Number.isNaN(dueAt.getTime()) ? getFallbackDueAt() : dueAt,
+      dueAt: dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : null,
       status: 'todo',
-      source: 'protocol_docx',
+      source: protocolSource,
     })
 
     created.push(`• ${item.title.trim()}${assignee ? ` (${assignee.name})` : ''}`)

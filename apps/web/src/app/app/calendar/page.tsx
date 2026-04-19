@@ -28,7 +28,11 @@ export default async function CalendarPage() {
         </span>
       </div>
 
-      <CalendarGrid tasks={tasks} year={year} month={month} />
+      <div className="overflow-x-auto pb-2">
+        <div className="min-w-[760px]">
+          <CalendarGrid tasks={tasks} year={year} month={month} />
+        </div>
+      </div>
     </div>
   )
 }

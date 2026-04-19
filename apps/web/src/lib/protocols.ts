@@ -1,9 +1,10 @@
 import mammoth from 'mammoth'
+import { PDFParse } from 'pdf-parse'
 import * as XLSX from 'xlsx'
 
 export interface ParsedProtocolInput {
   filename: string
-  source: 'protocol_docx' | 'protocol_xlsx' | 'protocol_paste'
+  source: 'protocol_docx' | 'protocol_xlsx' | 'protocol_pdf' | 'protocol_paste'
   text: string
 }
 
@@ -48,6 +49,13 @@ function readXlsx(buffer: Buffer): string {
   return normalizeText(parts.join('\n'))
 }
 
+async function readPdf(buffer: Buffer): Promise<string> {
+  const parser = new PDFParse({ data: buffer })
+  const result = await parser.getText()
+  await parser.destroy()
+  return normalizeText(result.text)
+}
+
 export async function parseProtocolInput(file: File | null, pastedText: string): Promise<ParsedProtocolInput> {
   const normalizedText = pastedText.trim()
 
@@ -69,6 +77,14 @@ export async function parseProtocolInput(file: File | null, pastedText: string):
         filename,
         source: 'protocol_xlsx',
         text: readXlsx(buffer),
+      }
+    }
+
+    if (lower.endsWith('.pdf')) {
+      return {
+        filename,
+        source: 'protocol_pdf',
+        text: await readPdf(buffer),
       }
     }
 

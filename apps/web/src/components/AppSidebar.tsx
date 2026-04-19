@@ -10,7 +10,6 @@ import {
   CalendarDays,
   FileText,
   MessageSquare,
-  Settings,
   LogOut,
 } from 'lucide-react'
 
@@ -22,20 +21,19 @@ const navItems = [
   { href: '/app/dashboard', label: 'Дашборд', icon: LayoutDashboard },
 ]
 
-const settingsItems = [
-  { href: '/app/settings/templates', label: 'Шаблоны задач' },
-]
-
 export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="flex flex-col w-60 shrink-0 border-r bg-sidebar min-h-screen">
-      <div className="px-4 py-5 border-b">
-        <span className="font-bold text-lg text-sidebar-foreground">Штаб</span>
+    <aside className="flex shrink-0 flex-col border-b bg-sidebar md:min-h-screen md:w-56 md:border-b-0 md:border-r">
+      <div className="flex items-center justify-between border-b px-3 py-3 md:block md:px-4 md:py-5">
+        <span className="text-base font-semibold tracking-tight text-sidebar-foreground md:text-lg">Штаб</span>
+        <div className="md:hidden">
+          <ThemeToggle />
+        </div>
       </div>
 
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex gap-1 overflow-x-auto px-2 py-2 md:block md:flex-1 md:space-y-1 md:overflow-y-auto md:py-4">
         {navItems.map((item) => {
           const Icon = item.icon
           const active = pathname === item.href
@@ -43,43 +41,20 @@ export function AppSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors md:gap-3 ${
                 active
                   ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                   : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              {item.label}
+              <span className="whitespace-nowrap">{item.label}</span>
             </Link>
           )
         })}
-
-        <div className="pt-4">
-          <div className="px-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Настройки
-          </div>
-          {settingsItems.map((item) => {
-            const active = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                  active
-                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent'
-                }`}
-              >
-                <Settings className="w-4 h-4 shrink-0 opacity-60" />
-                {item.label}
-              </Link>
-            )
-          })}
-        </div>
       </nav>
 
-      <div className="px-2 py-4 border-t">
+      <div className="hidden border-t px-2 py-4 md:block">
         <ThemeToggle />
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}

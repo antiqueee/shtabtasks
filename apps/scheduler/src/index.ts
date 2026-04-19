@@ -71,9 +71,9 @@ async function generateRecurringTasks() {
         dueAt: tasks.dueAt,
       })
       .from(tasks)
-      .where(and(eq(tasks.templateId, template.id), isNull(tasks.deletedAt), gte(tasks.dueAt, now), lt(tasks.dueAt, addDays(horizon, 1))))
+      .where(and(eq(tasks.templateId, template.id), isNull(tasks.deletedAt), isNotNull(tasks.dueAt), gte(tasks.dueAt, now), lt(tasks.dueAt, addDays(horizon, 1))))
 
-    const existingKeys = new Set(existing.map((task) => task.dueAt.toISOString()))
+    const existingKeys = new Set(existing.map((task) => task.dueAt?.toISOString()).filter(Boolean))
 
     for (const instance of dueDates) {
       const dueKey = instance.dueAt.toISOString()
@@ -119,6 +119,7 @@ async function remindAboutTasks() {
     .where(
       and(
         isNull(tasks.deletedAt),
+        isNotNull(tasks.dueAt),
         ne(tasks.status, 'done'),
         or(and(gte(tasks.dueAt, now), lt(tasks.dueAt, soonLimit)), lt(tasks.dueAt, now)),
       ),
@@ -126,6 +127,10 @@ async function remindAboutTasks() {
     .orderBy(asc(tasks.dueAt))
 
   for (const task of activeTasks) {
+    if (!task.dueAt) {
+      continue
+    }
+
     const overdue = task.dueAt < now
     const eventKey = overdue ? `task_overdue_reminder:${task.id}` : `task_due_soon_reminder:${task.id}`
 

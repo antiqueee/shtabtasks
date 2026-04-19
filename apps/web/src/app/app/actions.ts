@@ -48,8 +48,12 @@ const taskInputSchema = z.object({
   description: nullableTextSchema,
   assigneeName: nullableTextSchema,
   tagName: nullableTextSchema,
-  dueAt: z.string().trim().min(1),
+  dueAt: nullableTextSchema,
   status: boardStatusSchema.default('todo'),
+})
+
+const taskEditSchema = taskInputSchema.extend({
+  taskId: z.string().uuid(),
 })
 
 const assigneeInputSchema = z.object({
@@ -155,8 +159,8 @@ export async function createTaskAction(formData: FormData) {
 
   if (!parsed.success) return
 
-  const dueAt = new Date(parsed.data.dueAt)
-  if (Number.isNaN(dueAt.getTime())) return
+  const dueAt = parsed.data.dueAt ? new Date(parsed.data.dueAt) : null
+  if (dueAt && Number.isNaN(dueAt.getTime())) return
 
   const assigneeId = await findOrCreateAssigneeId(parsed.data.assigneeName)
   const tagId = await findOrCreateTagId(parsed.data.tagName)
@@ -170,6 +174,41 @@ export async function createTaskAction(formData: FormData) {
     status: parsed.data.status,
     source: 'manual',
   })
+
+  revalidateTaskPages()
+}
+
+export async function updateTaskAction(formData: FormData) {
+  const parsed = taskEditSchema.safeParse({
+    taskId: formData.get('taskId'),
+    title: formData.get('title'),
+    description: formData.get('description'),
+    assigneeName: formData.get('assigneeName'),
+    tagName: formData.get('tagName'),
+    dueAt: formData.get('dueAt'),
+    status: formData.get('status'),
+  })
+
+  if (!parsed.success) return
+
+  const dueAt = parsed.data.dueAt ? new Date(parsed.data.dueAt) : null
+  if (dueAt && Number.isNaN(dueAt.getTime())) return
+
+  const assigneeId = await findOrCreateAssigneeId(parsed.data.assigneeName)
+  const tagId = await findOrCreateTagId(parsed.data.tagName)
+
+  await db
+    .update(tasks)
+    .set({
+      title: parsed.data.title,
+      description: parsed.data.description,
+      assigneeId,
+      tagId,
+      dueAt,
+      status: parsed.data.status,
+      completedAt: parsed.data.status === 'done' ? new Date() : null,
+    })
+    .where(eq(tasks.id, parsed.data.taskId))
 
   revalidateTaskPages()
 }
@@ -319,7 +358,7 @@ export async function importProtocolAction(formData: FormData) {
         description: item.description?.trim() || null,
         assigneeId,
         tagId,
-        dueAt: dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : new Date(),
+        dueAt: dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt : null,
         status: 'todo',
         source: parsedInput.source,
         sourceProtocolId: protocol.id,

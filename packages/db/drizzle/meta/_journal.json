@@ -8,6 +8,13 @@
       "when": 1713456000000,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1713488400000,
+      "tag": "0001_nullable_task_due_at",
+      "breakpoints": true
     }
   ]
 }

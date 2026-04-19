@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen md:flex">
       <AppSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6">{children}</div>
+      <main className="min-w-0 flex-1 overflow-auto">
+        <div className="p-3 sm:p-5 lg:p-6">{children}</div>
       </main>
       <Toaster richColors position="top-right" />
     </div>

@@ -68,7 +68,7 @@ export const tasks = pgTable(
     description: text('description'),
     assigneeId: uuid('assignee_id').references(() => assignees.id),
     tagId: uuid('tag_id').references(() => tags.id),
-    dueAt: timestamp('due_at', { withTimezone: true }).notNull(),
+    dueAt: timestamp('due_at', { withTimezone: true }),
     status: taskStatusEnum('status').notNull().default('todo'),
     source: text('source').notNull(),
     sourceProtocolId: uuid('source_protocol_id').references(() => protocols.id),

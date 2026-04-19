@@ -5,7 +5,8 @@ import { useState } from 'react'
 interface Task {
   id: string
   title: string
-  dueAt: Date
+  description: string | null
+  dueAt: Date | null
   status: string
   assigneeName: string | null
   assigneeColor: string | null
@@ -27,7 +28,9 @@ const STATUS_COLOR: Record<string, string> = {
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
-function formatTime(date: Date): string {
+function formatTime(date: Date | null): string {
+  if (!date) return 'без времени'
+
   return new Intl.DateTimeFormat('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
@@ -36,7 +39,7 @@ function formatTime(date: Date): string {
 }
 
 export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
-  const [openDay, setOpenDay] = useState<string | null>(null)
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null)
 
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
@@ -49,6 +52,7 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
   // Group tasks by day (YYYY-MM-DD in Moscow time)
   const byDay = new Map<string, Task[]>()
   for (const task of tasks) {
+    if (!task.dueAt) continue
     const key = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow' }).format(task.dueAt)
     const arr = byDay.get(key) ?? []
     arr.push(task)
@@ -84,15 +88,12 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const dayTasks = byDay.get(dateStr) ?? []
           const isToday = dateStr === today
-          const isOpen = openDay === dateStr
-
           return (
             <div
               key={dateStr}
-              className={`min-h-20 border-b border-r last-in-row:border-r-0 p-1.5 cursor-pointer transition-colors ${
-                isOpen ? 'bg-primary/5' : 'hover:bg-muted/40'
-              } ${(idx + 1) % 7 === 0 ? 'border-r-0' : ''}`}
-              onClick={() => setOpenDay(isOpen ? null : dateStr)}
+              className={`relative min-h-24 border-b border-r p-1.5 transition-colors hover:bg-muted/30 ${
+                (idx + 1) % 7 === 0 ? 'border-r-0' : ''
+              }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span
@@ -111,37 +112,49 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
                 )}
               </div>
 
-              {/* Task dots preview */}
-              {!isOpen && dayTasks.length > 0 && (
-                <div className="flex flex-wrap gap-0.5">
-                  {dayTasks.slice(0, 3).map((t) => (
-                    <span
+              {dayTasks.length > 0 && (
+                <div className="space-y-1">
+                  {dayTasks.slice(0, 4).map((t) => {
+                    const isOpen = openTaskId === t.id
+                    return (
+                      <button
                       key={t.id}
-                      className="block h-1.5 flex-1 min-w-2 max-w-6 rounded-full"
-                      style={{ backgroundColor: STATUS_COLOR[t.status] ?? '#94a3b8' }}
-                      title={t.title}
-                    />
-                  ))}
-                  {dayTasks.length > 3 && (
-                    <span className="text-xs text-muted-foreground">+{dayTasks.length - 3}</span>
+                        type="button"
+                        onClick={() => setOpenTaskId(isOpen ? null : t.id)}
+                        className="block w-full truncate rounded-full border bg-background px-2 py-1 text-left text-[11px] leading-none shadow-sm hover:border-foreground/30"
+                        style={{ borderColor: STATUS_COLOR[t.status] ?? '#94a3b8' }}
+                        title={t.title}
+                      >
+                        {formatTime(t.dueAt)}
+                        {' · '}
+                        {t.title}
+                      </button>
+                    )
+                  })}
+                  {dayTasks.length > 4 && (
+                    <span className="block text-xs text-muted-foreground">+{dayTasks.length - 4}</span>
                   )}
                 </div>
               )}
 
-              {/* Expanded task list */}
-              {isOpen && (
-                <div className="mt-1 space-y-1">
-                  {dayTasks.map((t) => (
-                    <div key={t.id} className="rounded bg-white border p-1.5 shadow-sm">
-                      <div className="flex items-start gap-1.5">
+              {dayTasks.map((t) =>
+                openTaskId === t.id ? (
+                  <div
+                    key={`${t.id}-popover`}
+                    className="absolute left-1 right-1 top-12 z-30 rounded-xl border bg-popover p-3 text-popover-foreground shadow-2xl sm:left-2 sm:right-auto sm:w-80"
+                  >
+                    <div className="flex items-start gap-2">
                         <span
-                          className="mt-1 block w-2 h-2 rounded-full shrink-0"
+                        className="mt-1 block h-2.5 w-2.5 shrink-0 rounded-full"
                           style={{ backgroundColor: STATUS_COLOR[t.status] ?? '#94a3b8' }}
                         />
                         <div className="min-w-0">
-                          <p className="text-xs font-medium leading-tight truncate">{t.title}</p>
-                          <p className="text-xs text-muted-foreground">{formatTime(t.dueAt)}</p>
-                          <div className="flex flex-wrap gap-1 mt-0.5">
+                        <p className="text-sm font-semibold leading-snug">{t.title}</p>
+                        {t.description ? (
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{t.description}</p>
+                        ) : null}
+                          <p className="mt-2 text-xs text-muted-foreground">{formatTime(t.dueAt)}</p>
+                          <div className="mt-2 flex flex-wrap gap-1">
                             {t.assigneeName && (
                               <span
                                 className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium"
@@ -160,10 +173,16 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
                             )}
                           </div>
                         </div>
+                      <button
+                        type="button"
+                        onClick={() => setOpenTaskId(null)}
+                        className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Закрыть
+                      </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                ) : null,
               )}
             </div>
           )

@@ -56,6 +56,8 @@ export interface QuickTaskResult {
   assigneeName?: string
   tagName?: string
   dueAt?: string
+  recurrenceRule?: string
+  isRecurring?: boolean
 }
 
 export interface ParsedTask {
@@ -92,10 +94,18 @@ export async function parseQuickTask(text: string): Promise<QuickTaskResult> {
   "description": "подробности если есть, иначе null",
   "assigneeName": "имя ответственного если упомянут, иначе null",
   "tagName": "категория если понятна (Агитация/Юристы/Медиа/АХО/Аналитика/Финансы/Полевая работа), иначе null",
-  "dueAt": "ISO 8601 дата-время если упомянуто (сегодня/завтра/в среду/через N дней и т.д.), иначе null"
+  "dueAt": "ISO 8601 дата-время если упомянуто (сегодня/завтра/в среду/через N дней и т.д.), иначе null",
+  "isRecurring": true/false,
+  "recurrenceRule": "RRULE или DTSTART+RRULE для регулярной задачи, иначе null"
 }
 
 Обрабатывай относительные даты: "сегодня"=сегодня 18:00, "завтра"=завтра 18:00, "в среду"=ближайшая среда 10:00.
+Если дедлайн не назван явно — dueAt должен быть null, не придумывай дату.
+Если задача регулярная ("каждое воскресенье", "по понедельникам", "ежедневно", "каждый месяц 1 числа") — верни isRecurring=true и recurrenceRule.
+Для регулярных задач с временем используй формат:
+DTSTART:YYYYMMDDTHHMMSSZ
+RRULE:FREQ=WEEKLY;BYDAY=SU
+В DTSTART ставь ближайшее будущее наступление в UTC с указанным временем Europe/Moscow.
 Верни ТОЛЬКО JSON, без markdown и пояснений.`
 
   const raw = await chatCompletion({
