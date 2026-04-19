@@ -1,5 +1,4 @@
 import mammoth from 'mammoth'
-import { PDFParse } from 'pdf-parse'
 import * as XLSX from 'xlsx'
 
 export interface ParsedProtocolInput {
@@ -50,6 +49,7 @@ function readXlsx(buffer: Buffer): string {
 }
 
 async function readPdf(buffer: Buffer): Promise<string> {
+  const { PDFParse } = await import('pdf-parse')
   const parser = new PDFParse({ data: buffer })
   const result = await parser.getText()
   await parser.destroy()
