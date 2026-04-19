@@ -13,7 +13,9 @@
     "@shtab/db": "workspace:*",
     "@shtab/shared": "workspace:*",
     "drizzle-orm": "^0.42.0",
-    "grammy": "^1.36.1"
+    "grammy": "^1.36.1",
+    "mammoth": "^1.8.0",
+    "socks-proxy-agent": "^8.0.5"
   },
   "devDependencies": {
     "tsx": "^4.19.3",

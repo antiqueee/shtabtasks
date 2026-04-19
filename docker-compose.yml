@@ -53,6 +53,7 @@ services:
       OPENROUTER_MODEL_FAST: ${OPENROUTER_MODEL_FAST}
       YC_API_KEY: ${YC_API_KEY}
       YC_FOLDER_ID: ${YC_FOLDER_ID}
+      SOCKS_PROXY_URL: ${SOCKS_PROXY_URL}
       NODE_ENV: production
 
   scheduler:

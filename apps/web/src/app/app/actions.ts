@@ -18,6 +18,16 @@ import { z } from 'zod'
 import { chunkProtocolText, parseProtocolInput } from '@/lib/protocols'
 import { pickRelevantChunks } from '@/lib/assistant'
 
+const RANDOM_COLORS = [
+  '#e11d48', '#f97316', '#eab308', '#16a34a', '#0891b2',
+  '#4f46e5', '#9333ea', '#db2777', '#059669', '#d97706',
+  '#0284c7', '#7c3aed', '#be123c', '#b45309', '#15803d',
+]
+
+function randomColor(): string {
+  return RANDOM_COLORS[Math.floor(Math.random() * RANDOM_COLORS.length)]
+}
+
 const boardStatusSchema = z.enum(['todo', 'in_progress', 'done'])
 
 const nullableUuidSchema = z
@@ -36,8 +46,8 @@ const nullableTextSchema = z
 const taskInputSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: nullableTextSchema,
-  assigneeId: nullableUuidSchema,
-  tagId: nullableUuidSchema,
+  assigneeName: nullableTextSchema,
+  tagName: nullableTextSchema,
   dueAt: z.string().trim().min(1),
   status: boardStatusSchema.default('todo'),
 })
@@ -96,7 +106,7 @@ async function findOrCreateAssigneeId(name: string | null | undefined) {
     .insert(assignees)
     .values({
       name: name.trim(),
-      color: '#64748b',
+      color: randomColor(),
     })
     .returning({ id: assignees.id })
 
@@ -120,7 +130,7 @@ async function findOrCreateTagId(name: string | null | undefined) {
     .insert(tags)
     .values({
       name: name.trim(),
-      color: '#0f766e',
+      color: randomColor(),
     })
     .onConflictDoNothing()
     .returning({ id: tags.id })
@@ -137,26 +147,25 @@ export async function createTaskAction(formData: FormData) {
   const parsed = taskInputSchema.safeParse({
     title: formData.get('title'),
     description: formData.get('description'),
-    assigneeId: formData.get('assigneeId'),
-    tagId: formData.get('tagId'),
+    assigneeName: formData.get('assigneeName'),
+    tagName: formData.get('tagName'),
     dueAt: formData.get('dueAt'),
     status: formData.get('status'),
   })
 
-  if (!parsed.success) {
-    return
-  }
+  if (!parsed.success) return
 
   const dueAt = new Date(parsed.data.dueAt)
-  if (Number.isNaN(dueAt.getTime())) {
-    return
-  }
+  if (Number.isNaN(dueAt.getTime())) return
+
+  const assigneeId = await findOrCreateAssigneeId(parsed.data.assigneeName)
+  const tagId = await findOrCreateTagId(parsed.data.tagName)
 
   await db.insert(tasks).values({
     title: parsed.data.title,
     description: parsed.data.description,
-    assigneeId: parsed.data.assigneeId,
-    tagId: parsed.data.tagId,
+    assigneeId,
+    tagId,
     dueAt,
     status: parsed.data.status,
     source: 'manual',

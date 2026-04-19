@@ -94,6 +94,21 @@ export async function getCalendarTasks(daysAhead = 21): Promise<TaskView[]> {
   return rows.map(mapTaskRow)
 }
 
+export async function getMonthTasks(year: number, month: number): Promise<TaskView[]> {
+  const from = new Date(year, month, 1)
+  const to = new Date(year, month + 1, 0, 23, 59, 59)
+
+  const rows = await db
+    .select({ task: tasks, assignee: assignees, tag: tags })
+    .from(tasks)
+    .leftJoin(assignees, eq(tasks.assigneeId, assignees.id))
+    .leftJoin(tags, eq(tasks.tagId, tags.id))
+    .where(and(isNull(tasks.deletedAt), gte(tasks.dueAt, from), lte(tasks.dueAt, to)))
+    .orderBy(asc(tasks.dueAt))
+
+  return rows.map(mapTaskRow)
+}
+
 export async function getDashboardData() {
   const grouped = await getBoardTasks()
   const allTasks = [...grouped.todo, ...grouped.in_progress, ...grouped.done]

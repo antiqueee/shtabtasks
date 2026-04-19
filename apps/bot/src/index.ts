@@ -1,8 +1,11 @@
+import https from 'https'
 import { db, assignees, events, tags, tasks } from '@shtab/db'
-import { parseQuickTask } from '@shtab/shared/llm'
+import { parseProtocol, parseQuickTask } from '@shtab/shared/llm'
 import { transcribeAudio } from '@shtab/shared/stt'
 import { asc, eq } from 'drizzle-orm'
 import { Bot, GrammyError, HttpError } from 'grammy'
+import mammoth from 'mammoth'
+import { SocksProxyAgent } from 'socks-proxy-agent'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 const ownerId = process.env.TELEGRAM_OWNER_ID
@@ -10,39 +13,26 @@ const ownerId = process.env.TELEGRAM_OWNER_ID
 if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set')
 if (!ownerId) throw new Error('TELEGRAM_OWNER_ID is not set')
 
-const bot = new Bot(token)
+const socksProxy = process.env.SOCKS_PROXY_URL
+const proxyAgent = socksProxy ? new SocksProxyAgent(socksProxy) : undefined
 
-interface StoredTaskResult {
-  id: string
-  title: string
-  dueAt: Date
-  assigneeName: string | null
-  tagName: string | null
-}
-
-function normalizeName(value: string): string {
-  return value.trim().toLocaleLowerCase('ru-RU')
-}
+const bot = new Bot(token, proxyAgent ? {
+  client: { baseFetchConfig: { agent: proxyAgent } }
+} : {})
 
 function getFallbackDueAt(): Date {
   const dueAt = new Date()
   dueAt.setHours(18, 0, 0, 0)
-
   if (dueAt.getTime() <= Date.now()) {
     dueAt.setDate(dueAt.getDate() + 1)
   }
-
   return dueAt
 }
 
 function parseDueAt(value?: string): Date {
   if (!value) return getFallbackDueAt()
-
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return getFallbackDueAt()
-  }
-
+  if (Number.isNaN(date.getTime())) return getFallbackDueAt()
   return date
 }
 
@@ -57,25 +47,29 @@ function formatDateTime(date: Date): string {
   }).format(date)
 }
 
+function normalizeName(value: string): string {
+  return value.trim().toLocaleLowerCase('ru-RU')
+}
+
+const RANDOM_COLORS = [
+  '#e11d48', '#f97316', '#eab308', '#16a34a', '#0891b2',
+  '#4f46e5', '#9333ea', '#db2777', '#059669', '#0284c7',
+]
+
+function randomColor(): string {
+  return RANDOM_COLORS[Math.floor(Math.random() * RANDOM_COLORS.length)]
+}
+
 async function findOrCreateAssignee(name?: string): Promise<{ id: string; name: string } | null> {
   if (!name) return null
-
   const normalized = normalizeName(name)
   const existing = await db.select().from(assignees).orderBy(asc(assignees.name))
   const matched = existing.find((item) => normalizeName(item.name) === normalized)
-
-  if (matched) {
-    return { id: matched.id, name: matched.name }
-  }
-
+  if (matched) return { id: matched.id, name: matched.name }
   const [created] = await db
     .insert(assignees)
-    .values({
-      name: name.trim(),
-      color: '#64748b',
-    })
+    .values({ name: name.trim(), color: randomColor() })
     .returning({ id: assignees.id, name: assignees.name })
-
   return created ?? null
 }
 
@@ -85,29 +79,24 @@ async function findOrCreateTag(name?: string): Promise<{ id: string; name: strin
   const normalized = normalizeName(name)
   const existing = await db.select().from(tags).orderBy(asc(tags.name))
   const matched = existing.find((item) => normalizeName(item.name) === normalized)
-
-  if (matched) {
-    return { id: matched.id, name: matched.name }
-  }
+  if (matched) return { id: matched.id, name: matched.name }
 
   const inserted = await db
     .insert(tags)
-    .values({
-      name: name.trim(),
-      color: '#0f766e',
-    })
+    .values({ name: name.trim(), color: randomColor() })
     .onConflictDoNothing()
     .returning({ id: tags.id, name: tags.name })
 
-  if (inserted[0]) {
-    return inserted[0]
-  }
+  if (inserted[0]) return inserted[0]
 
   const [created] = await db.select().from(tags).where(eq(tags.name, name.trim())).limit(1)
   return created ? { id: created.id, name: created.name } : null
 }
 
-async function storeTaskFromText(text: string, source: 'text_tg' | 'voice_tg'): Promise<StoredTaskResult> {
+async function storeTask(
+  text: string,
+  source: 'text_tg' | 'voice_tg',
+): Promise<{ title: string; dueAt: Date; assigneeName: string | null; tagName: string | null }> {
   const parsed = await parseQuickTask(text)
   const title = parsed.title?.trim() || text.trim()
   const dueAt = parseDueAt(parsed.dueAt)
@@ -127,47 +116,41 @@ async function storeTaskFromText(text: string, source: 'text_tg' | 'voice_tg'): 
     })
     .returning({ id: tasks.id, title: tasks.title, dueAt: tasks.dueAt })
 
-  if (!task) {
-    throw new Error('Task was not created')
-  }
+  if (!task) throw new Error('Task was not created')
 
   await db.insert(events).values({
     eventName: 'task_created_from_bot',
-    payload: {
-      taskId: task.id,
-      source,
-      assigneeName: assignee?.name ?? null,
-      tagName: tag?.name ?? null,
-    },
+    payload: { taskId: task.id, source, assigneeName: assignee?.name ?? null, tagName: tag?.name ?? null },
   })
 
-  return {
-    id: task.id,
-    title: task.title,
-    dueAt: task.dueAt,
-    assigneeName: assignee?.name ?? null,
-    tagName: tag?.name ?? null,
-  }
+  return { title: task.title, dueAt: task.dueAt, assigneeName: assignee?.name ?? null, tagName: tag?.name ?? null }
 }
 
-function formatTaskReply(task: StoredTaskResult, originalText?: string): string {
+function formatTaskReply(task: { title: string; dueAt: Date; assigneeName: string | null; tagName: string | null }, transcript?: string): string {
   const lines = [
     `Задача создана: ${task.title}`,
     `Дедлайн: ${formatDateTime(task.dueAt)}`,
     `Ответственный: ${task.assigneeName ?? 'не назначен'}`,
     `Тег: ${task.tagName ?? 'не указан'}`,
   ]
-
-  if (originalText) {
-    lines.push('', `Расшифровка: ${originalText}`)
-  }
-
+  if (transcript) lines.push('', `Расшифровка: ${transcript}`)
   return lines.join('\n')
 }
 
+function downloadBuffer(url: string, agent?: https.Agent): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { agent }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => chunks.push(chunk))
+      res.on('end', () => resolve(Buffer.concat(chunks)))
+      res.on('error', reject)
+    })
+    req.on('error', reject)
+  })
+}
+
 bot.use(async (ctx, next) => {
-  const userId = ctx.from?.id?.toString()
-  if (userId !== ownerId) {
+  if (ctx.from?.id?.toString() !== ownerId) {
     await ctx.reply('Доступ ограничен')
     return
   }
@@ -176,34 +159,22 @@ bot.use(async (ctx, next) => {
 
 bot.command('start', async (ctx) => {
   await ctx.reply(
-    [
-      'Бот штабных задач готов.',
-      'Просто пришли текст задачи или голосовое сообщение.',
-      'Я создам задачу, попробую определить дедлайн, ответственного и тег.',
-    ].join('\n'),
+    'Бот штабных задач готов.\nПросто пришли текст задачи или голосовое сообщение.\nЯ создам задачу, определю дедлайн и тег.',
   )
 })
 
 bot.command('help', async (ctx) => {
   await ctx.reply(
-    [
-      'Что умею сейчас:',
-      '• текстовое сообщение -> новая задача',
-      '• голосовое сообщение -> распознавание и новая задача',
-      '• доступ только для владельца',
-    ].join('\n'),
+    'Что умею:\n• текстовое сообщение → новая задача\n• голосовое сообщение → распознавание и новая задача\n• доступ только для владельца',
   )
 })
 
 bot.on('message:text', async (ctx) => {
   const text = ctx.message.text.trim()
-
-  if (!text || text.startsWith('/')) {
-    return
-  }
+  if (!text || text.startsWith('/')) return
 
   await ctx.replyWithChatAction('typing')
-  const task = await storeTaskFromText(text, 'text_tg')
+  const task = await storeTask(text, 'text_tg')
   await ctx.reply(formatTaskReply(task))
 })
 
@@ -211,17 +182,10 @@ bot.on('message:voice', async (ctx) => {
   await ctx.reply('Обрабатываю голосовое сообщение...')
 
   const file = await ctx.getFile()
-  if (!file.file_path) {
-    throw new Error('Voice file path is missing')
-  }
+  if (!file.file_path) throw new Error('Voice file path is missing')
 
   const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`
-  const response = await fetch(fileUrl)
-  if (!response.ok) {
-    throw new Error(`Failed to download voice file: ${response.status}`)
-  }
-
-  const audioBuffer = Buffer.from(await response.arrayBuffer())
+  const audioBuffer = await downloadBuffer(fileUrl, proxyAgent)
   const transcript = (await transcribeAudio(audioBuffer)).trim()
 
   if (!transcript) {
@@ -229,8 +193,71 @@ bot.on('message:voice', async (ctx) => {
     return
   }
 
-  const task = await storeTaskFromText(transcript, 'voice_tg')
+  const task = await storeTask(transcript, 'voice_tg')
   await ctx.reply(formatTaskReply(task, transcript))
+})
+
+bot.on('message:document', async (ctx) => {
+  const doc = ctx.message.document
+  const name = doc.file_name ?? ''
+  const isDocx = name.toLowerCase().endsWith('.docx')
+  const isTxt = name.toLowerCase().endsWith('.txt') || name.toLowerCase().endsWith('.md')
+
+  if (!isDocx && !isTxt) {
+    await ctx.reply('Поддерживаются только .docx и .txt файлы с протоколами.')
+    return
+  }
+
+  await ctx.reply(`Обрабатываю протокол: ${name}...`)
+
+  const file = await ctx.getFile()
+  if (!file.file_path) throw new Error('Document file path is missing')
+
+  const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`
+  const buf = await downloadBuffer(fileUrl, proxyAgent)
+
+  let text = ''
+  if (isDocx) {
+    const result = await mammoth.extractRawText({ buffer: buf })
+    text = result.value.trim()
+  } else {
+    text = buf.toString('utf-8').trim()
+  }
+
+  if (!text) {
+    await ctx.reply('Не удалось извлечь текст из файла.')
+    return
+  }
+
+  const parsed = await parseProtocol(text)
+  const created: string[] = []
+
+  for (const item of parsed.tasks) {
+    if (!item.title?.trim()) continue
+
+    const assignee = await findOrCreateAssignee(item.assigneeName ?? undefined)
+    const tag = await findOrCreateTag(item.tagName ?? undefined)
+    const dueAt = item.dueAt ? new Date(item.dueAt) : getFallbackDueAt()
+
+    await db.insert(tasks).values({
+      title: item.title.trim(),
+      description: item.description?.trim() || null,
+      assigneeId: assignee?.id ?? null,
+      tagId: tag?.id ?? null,
+      dueAt: Number.isNaN(dueAt.getTime()) ? getFallbackDueAt() : dueAt,
+      status: 'todo',
+      source: 'protocol_docx',
+    })
+
+    created.push(`• ${item.title.trim()}${assignee ? ` (${assignee.name})` : ''}`)
+  }
+
+  if (created.length === 0) {
+    await ctx.reply('Задачи в протоколе не найдены.')
+    return
+  }
+
+  await ctx.reply(`Создано ${created.length} задач:\n${created.slice(0, 10).join('\n')}${created.length > 10 ? `\n...и ещё ${created.length - 10}` : ''}`)
 })
 
 bot.catch(async (err) => {
@@ -243,12 +270,10 @@ bot.catch(async (err) => {
         await ctx.reply(`Ошибка Telegram API: ${err.error.description}`)
         return
       }
-
       if (err.error instanceof HttpError) {
         await ctx.reply('Сетевая ошибка при обращении к Telegram. Попробуй ещё раз.')
         return
       }
-
       await ctx.reply('Не удалось обработать сообщение. Проверь текст или повтори позже.')
     } catch (replyError) {
       console.error('Failed to report bot error', replyError)
@@ -260,20 +285,13 @@ async function main() {
   const me = await bot.api.getMe()
   console.log(`Bot started: @${me.username}`)
   console.log(`Owner ID: ${ownerId}`)
-
   await bot.start({
     onStart: (info) => console.log(`Polling started for @${info.username}`),
   })
 }
 
-function shutdown(signal: string) {
-  console.log(`Received ${signal}, shutting down...`)
-  bot.stop()
-  process.exit(0)
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => { bot.stop(); process.exit(0) })
+process.on('SIGINT', () => { bot.stop(); process.exit(0) })
 
 main().catch((err) => {
   console.error('Fatal error:', err)

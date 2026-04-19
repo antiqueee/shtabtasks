@@ -23,8 +23,6 @@ const navItems = [
 ]
 
 const settingsItems = [
-  { href: '/app/settings/assignees', label: 'Ответственные' },
-  { href: '/app/settings/tags', label: 'Теги' },
   { href: '/app/settings/templates', label: 'Шаблоны задач' },
 ]
 

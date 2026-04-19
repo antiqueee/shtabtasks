@@ -1,4 +1,7 @@
-import { RRule } from 'rrule'
+import { createRequire } from 'module'
+const _require = createRequire(import.meta.url)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { RRule } = _require('rrule') as { RRule: typeof import('rrule').RRule }
 
 export interface TemplateInstance {
   dueAt: Date
