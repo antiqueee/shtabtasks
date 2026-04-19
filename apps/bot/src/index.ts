@@ -5,7 +5,6 @@ import { transcribeAudio } from '@shtab/shared/stt'
 import { asc, eq } from 'drizzle-orm'
 import { Bot, GrammyError, HttpError } from 'grammy'
 import mammoth from 'mammoth'
-import { PDFParse } from 'pdf-parse'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import * as XLSX from 'xlsx'
 
@@ -276,6 +275,7 @@ bot.on('message:document', async (ctx) => {
   } else if (isXlsx) {
     text = readXlsx(buf)
   } else if (isPdf) {
+    const { PDFParse } = await import('pdf-parse')
     const parser = new PDFParse({ data: buf })
     const result = await parser.getText()
     await parser.destroy()
