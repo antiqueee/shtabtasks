@@ -15,6 +15,7 @@ RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
 RUN pnpm --filter @shtab/bot build
 RUN pnpm --filter @shtab/bot --prod deploy /prod/bot
+RUN mkdir -p /prod/bot/dist && cp -r apps/bot/dist/. /prod/bot/dist/
 RUN rm -rf /prod/bot/src /prod/bot/Dockerfile /prod/bot/tsconfig.json /prod/bot/tsconfig.tsbuildinfo
 
 FROM node:22-alpine AS runner

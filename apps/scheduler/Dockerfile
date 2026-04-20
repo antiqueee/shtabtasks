@@ -15,6 +15,7 @@ RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
 RUN pnpm --filter @shtab/scheduler build
 RUN pnpm --filter @shtab/scheduler --prod deploy /prod/scheduler
+RUN mkdir -p /prod/scheduler/dist && cp -r apps/scheduler/dist/. /prod/scheduler/dist/
 RUN rm -rf /prod/scheduler/src /prod/scheduler/Dockerfile /prod/scheduler/tsconfig.json /prod/scheduler/tsconfig.tsbuildinfo
 
 FROM node:22-alpine AS runner
