@@ -5,6 +5,7 @@ import { transcribeAudio } from '@shtab/shared/stt'
 import { asc, eq } from 'drizzle-orm'
 import { Bot, GrammyError, HttpError } from 'grammy'
 import mammoth from 'mammoth'
+import nodeFetch, { type RequestInfo, type RequestInit, type Response } from 'node-fetch'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import * as XLSX from 'xlsx'
 
@@ -14,12 +15,81 @@ const ownerId = process.env.TELEGRAM_OWNER_ID
 if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set')
 if (!ownerId) throw new Error('TELEGRAM_OWNER_ID is not set')
 
-const socksProxy = process.env.SOCKS_PROXY_URL
-const proxyAgent = socksProxy ? new SocksProxyAgent(socksProxy) : undefined
+function parseProxyUrls(): string[] {
+  const rawValues = [process.env.SOCKS_PROXY_URLS, process.env.SOCKS_PROXY_URL].filter(Boolean)
+  const urls = rawValues.flatMap((value) => value?.split(/[\s,;]+/) ?? [])
+  return [...new Set(urls.map((url) => url.trim()).filter(Boolean))]
+}
 
-const bot = new Bot(token, proxyAgent ? {
-  client: { baseFetchConfig: { agent: proxyAgent } }
-} : {})
+class ProxyPool {
+  private readonly urls: string[]
+  private index = 0
+
+  constructor(urls: string[]) {
+    this.urls = urls
+  }
+
+  get size(): number {
+    return this.urls.length
+  }
+
+  currentUrl(): string | null {
+    return this.urls[this.index] ?? null
+  }
+
+  currentAgent(): SocksProxyAgent | undefined {
+    const url = this.currentUrl()
+    return url ? new SocksProxyAgent(url) : undefined
+  }
+
+  rotate(reason: unknown): void {
+    if (this.urls.length <= 1) return
+    const previous = this.currentUrl()
+    this.index = (this.index + 1) % this.urls.length
+    console.warn('Telegram proxy rotated', {
+      from: previous ? maskProxyUrl(previous) : null,
+      to: this.currentUrl() ? maskProxyUrl(this.currentUrl() as string) : null,
+      reason: reason instanceof Error ? reason.message : String(reason),
+    })
+  }
+}
+
+function maskProxyUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    if (parsed.username || parsed.password) {
+      parsed.username = '<user>'
+      parsed.password = '<pass>'
+    }
+    return parsed.toString()
+  } catch {
+    return '<invalid proxy url>'
+  }
+}
+
+const proxyPool = new ProxyPool(parseProxyUrls())
+console.log(`Telegram proxy pool: ${proxyPool.size} SOCKS proxy configured`)
+
+const telegramFetch = Object.assign(async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+  const attempts = Math.max(proxyPool.size, 1)
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const agent = proxyPool.currentAgent()
+    try {
+      return await nodeFetch(input, { ...init, agent })
+    } catch (error) {
+      lastError = error
+      proxyPool.rotate(error)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Telegram request failed')
+}, nodeFetch)
+
+const bot = new Bot(token, {
+  client: { fetch: telegramFetch },
+})
 
 function getFallbackDueAt(): Date {
   const dueAt = new Date()
@@ -186,7 +256,7 @@ function readXlsx(buffer: Buffer): string {
   return parts.join('\n').trim()
 }
 
-function downloadBuffer(url: string, agent?: https.Agent): Promise<Buffer> {
+function downloadBufferOnce(url: string, agent?: SocksProxyAgent): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { agent }, (res) => {
       const chunks: Buffer[] = []
@@ -196,6 +266,22 @@ function downloadBuffer(url: string, agent?: https.Agent): Promise<Buffer> {
     })
     req.on('error', reject)
   })
+}
+
+async function downloadBuffer(url: string): Promise<Buffer> {
+  const attempts = Math.max(proxyPool.size, 1)
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await downloadBufferOnce(url, proxyPool.currentAgent())
+    } catch (error) {
+      lastError = error
+      proxyPool.rotate(error)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Telegram file download failed')
 }
 
 bot.use(async (ctx, next) => {
@@ -234,7 +320,7 @@ bot.on('message:voice', async (ctx) => {
   if (!file.file_path) throw new Error('Voice file path is missing')
 
   const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`
-  const audioBuffer = await downloadBuffer(fileUrl, proxyAgent)
+  const audioBuffer = await downloadBuffer(fileUrl)
   const transcript = (await transcribeAudio(audioBuffer)).trim()
 
   if (!transcript) {
@@ -266,7 +352,7 @@ bot.on('message:document', async (ctx) => {
   if (!file.file_path) throw new Error('Document file path is missing')
 
   const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`
-  const buf = await downloadBuffer(fileUrl, proxyAgent)
+  const buf = await downloadBuffer(fileUrl)
 
   let text = ''
   if (isDocx) {
