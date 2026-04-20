@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
-RUN cd apps/scheduler && node_modules/.bin/tsc -p tsconfig.json
+RUN pnpm --filter @shtab/scheduler exec tsc -b tsconfig.json --force
 RUN test -f apps/scheduler/dist/index.js
 RUN pnpm --filter @shtab/scheduler --prod deploy /prod/scheduler
 RUN mkdir -p /prod/scheduler/dist && cp -r apps/scheduler/dist/. /prod/scheduler/dist/

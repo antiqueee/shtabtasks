@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
-RUN cd apps/bot && node_modules/.bin/tsc -p tsconfig.json
+RUN pnpm --filter @shtab/bot exec tsc -b tsconfig.json --force
 RUN test -f apps/bot/dist/index.js
 RUN pnpm --filter @shtab/bot --prod deploy /prod/bot
 RUN mkdir -p /prod/bot/dist && cp -r apps/bot/dist/. /prod/bot/dist/
