@@ -1,1 +1,1 @@
-export * from '@shtab/db'
+export * from '../../../../packages/db/dist/index.js'

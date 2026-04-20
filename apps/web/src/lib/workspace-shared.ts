@@ -1,1 +1,1 @@
-export * from '@shtab/shared'
+export * from '../../../../packages/shared/dist/index.js'
