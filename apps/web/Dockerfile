@@ -16,8 +16,10 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-RUN pnpm --filter @shtab/db build
-RUN pnpm --filter @shtab/shared build
+RUN pnpm --filter @shtab/db exec tsc -b tsconfig.json --force
+RUN test -f packages/db/dist/index.js
+RUN pnpm --filter @shtab/shared exec tsc -b tsconfig.json --force
+RUN test -f packages/shared/dist/index.js
 RUN rm -rf apps/web/node_modules/@shtab node_modules/@shtab && \
     mkdir -p apps/web/node_modules/@shtab/db apps/web/node_modules/@shtab/shared \
              node_modules/@shtab/db node_modules/@shtab/shared && \
