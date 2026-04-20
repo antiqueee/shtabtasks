@@ -33,6 +33,9 @@ RUN rm -rf apps/web/node_modules/@shtab node_modules/@shtab && \
     cp -r packages/shared/dist node_modules/@shtab/shared/
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN cd apps/web && node_modules/.bin/next build
+RUN mkdir -p /runtime-node-modules && \
+    cp -r node_modules/.pnpm/rrule@*/node_modules/rrule /runtime-node-modules/rrule && \
+    cp -r node_modules/.pnpm/tslib@*/node_modules/tslib /runtime-node-modules/tslib
 
 FROM base AS runner
 WORKDIR /app
@@ -42,6 +45,7 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /runtime-node-modules ./node_modules
 
 USER nextjs
 EXPOSE 3000
