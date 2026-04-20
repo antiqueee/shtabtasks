@@ -18,12 +18,17 @@ COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_module
 COPY . .
 RUN pnpm --filter @shtab/db build
 RUN pnpm --filter @shtab/shared build
-RUN rm -rf apps/web/node_modules/@shtab && \
-    mkdir -p apps/web/node_modules/@shtab/db apps/web/node_modules/@shtab/shared && \
+RUN rm -rf apps/web/node_modules/@shtab node_modules/@shtab && \
+    mkdir -p apps/web/node_modules/@shtab/db apps/web/node_modules/@shtab/shared \
+             node_modules/@shtab/db node_modules/@shtab/shared && \
     cp packages/db/package.json apps/web/node_modules/@shtab/db/ && \
     cp -r packages/db/dist apps/web/node_modules/@shtab/db/ && \
     cp packages/shared/package.json apps/web/node_modules/@shtab/shared/ && \
-    cp -r packages/shared/dist apps/web/node_modules/@shtab/shared/
+    cp -r packages/shared/dist apps/web/node_modules/@shtab/shared/ && \
+    cp packages/db/package.json node_modules/@shtab/db/ && \
+    cp -r packages/db/dist node_modules/@shtab/db/ && \
+    cp packages/shared/package.json node_modules/@shtab/shared/ && \
+    cp -r packages/shared/dist node_modules/@shtab/shared/
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN cd apps/web && node_modules/.bin/next build
 
