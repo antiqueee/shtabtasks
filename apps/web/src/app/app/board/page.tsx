@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createTaskAction, updateTaskAction, updateTaskStatusAction } from '@/app/app/actions'
+import { createTaskAction, deleteTaskAction, updateTaskAction, updateTaskStatusAction } from '@/app/app/actions'
 import {
   boardStatuses,
   formatDateTime,
@@ -203,6 +203,15 @@ export default async function BoardPage() {
                               </button>
                             </form>
                           ))}
+                        <form action={deleteTaskAction} className="ml-auto">
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <button
+                            type="submit"
+                            className="text-xs px-2.5 py-1 rounded border border-red-200 text-red-700 hover:bg-red-50 transition-colors"
+                          >
+                            Удалить
+                          </button>
+                        </form>
                       </div>
                     </div>
                   ))

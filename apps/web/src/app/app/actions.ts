@@ -81,10 +81,15 @@ const taskStatusUpdateSchema = z.object({
   status: boardStatusSchema,
 })
 
+const taskIdSchema = z.object({
+  taskId: z.string().uuid(),
+})
+
 function revalidateTaskPages() {
   revalidatePath('/app/board')
   revalidatePath('/app/calendar')
   revalidatePath('/app/dashboard')
+  revalidatePath('/app/trash')
 }
 
 function revalidateProtocolPages() {
@@ -230,6 +235,49 @@ export async function updateTaskStatusAction(formData: FormData) {
       completedAt: parsed.data.status === 'done' ? new Date() : null,
     })
     .where(eq(tasks.id, parsed.data.taskId))
+
+  revalidateTaskPages()
+}
+
+export async function deleteTaskAction(formData: FormData) {
+  const parsed = taskIdSchema.safeParse({
+    taskId: formData.get('taskId'),
+  })
+
+  if (!parsed.success) return
+
+  await db
+    .update(tasks)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(tasks.id, parsed.data.taskId), isNull(tasks.deletedAt)))
+
+  revalidateTaskPages()
+}
+
+export async function restoreTaskAction(formData: FormData) {
+  const parsed = taskIdSchema.safeParse({
+    taskId: formData.get('taskId'),
+  })
+
+  if (!parsed.success) return
+
+  await db
+    .update(tasks)
+    .set({ deletedAt: null })
+    .where(eq(tasks.id, parsed.data.taskId))
+
+  revalidateTaskPages()
+}
+
+export async function deleteTaskPermanentlyAction(formData: FormData) {
+  const parsed = taskIdSchema.safeParse({
+    taskId: formData.get('taskId'),
+  })
+
+  if (!parsed.success) return
+
+  await db.delete(parseBatchTasks).where(eq(parseBatchTasks.taskId, parsed.data.taskId))
+  await db.delete(tasks).where(eq(tasks.id, parsed.data.taskId))
 
   revalidateTaskPages()
 }

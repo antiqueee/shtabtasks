@@ -17,6 +17,7 @@ export interface TaskView {
   status: BoardStatus
   source: string
   completedAt: Date | null
+  deletedAt: Date | null
   assigneeId: string | null
   assigneeName: string | null
   assigneeColor: string | null
@@ -38,6 +39,7 @@ function mapTaskRow(row: {
     status: row.task.status === 'scheduled' ? 'todo' : row.task.status,
     source: row.task.source,
     completedAt: row.task.completedAt,
+    deletedAt: row.task.deletedAt,
     assigneeId: row.assignee?.id ?? null,
     assigneeName: row.assignee?.name ?? null,
     assigneeColor: row.assignee?.color ?? null,
@@ -72,6 +74,22 @@ export async function getBoardTasks(): Promise<Record<BoardStatus, TaskView[]>> 
   }
 
   return grouped
+}
+
+export async function getDeletedTasks(): Promise<TaskView[]> {
+  const rows = await db
+    .select({
+      task: tasks,
+      assignee: assignees,
+      tag: tags,
+    })
+    .from(tasks)
+    .leftJoin(assignees, eq(tasks.assigneeId, assignees.id))
+    .leftJoin(tags, eq(tasks.tagId, tags.id))
+    .where(isNotNull(tasks.deletedAt))
+    .orderBy(desc(tasks.deletedAt), desc(tasks.createdAt))
+
+  return rows.map(mapTaskRow)
 }
 
 export async function getCalendarTasks(daysAhead = 21): Promise<TaskView[]> {

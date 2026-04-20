@@ -8,17 +8,15 @@ import {
   LayoutDashboard,
   Columns3,
   CalendarDays,
-  FileText,
-  MessageSquare,
   LogOut,
+  Trash2,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/app/board', label: 'Канбан', icon: Columns3 },
   { href: '/app/calendar', label: 'Календарь', icon: CalendarDays },
-  { href: '/app/protocols', label: 'Протоколы', icon: FileText },
-  { href: '/app/assistant', label: 'Ассистент', icon: MessageSquare },
   { href: '/app/dashboard', label: 'Дашборд', icon: LayoutDashboard },
+  { href: '/app/trash', label: 'Корзина', icon: Trash2 },
 ]
 
 export function AppSidebar() {
