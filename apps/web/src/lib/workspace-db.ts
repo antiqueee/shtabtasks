@@ -1,1 +1,1 @@
-export * from '../generated/db/index.js'
+export * from '@shtab/db'
