@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface Task {
   id: string
@@ -38,17 +39,37 @@ function formatTime(date: Date | null): string {
   }).format(date)
 }
 
-function getPopoverPlacement(index: number): string {
-  const column = index % 7
-  const row = Math.floor(index / 7)
-  const horizontal = column >= 5 ? 'right-2' : 'left-2'
-  const vertical = row >= 4 ? 'bottom-2' : 'top-12'
+interface OpenTaskState {
+  task: Task
+  top: number
+  left: number
+}
 
-  return `${horizontal} ${vertical}`
+function getFloatingPosition(target: HTMLElement): { top: number; left: number } {
+  const rect = target.getBoundingClientRect()
+  const width = Math.min(352, window.innerWidth - 24)
+  const left = Math.min(Math.max(12, rect.left), window.innerWidth - width - 12)
+  const belowTop = rect.bottom + 8
+  const top = belowTop + 260 > window.innerHeight ? Math.max(12, rect.top - 268) : belowTop
+
+  return { top, left }
 }
 
 export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null)
+  const [openTask, setOpenTask] = useState<OpenTaskState | null>(null)
+
+  useEffect(() => {
+    if (!openTask) return
+
+    const close = () => setOpenTask(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [openTask])
 
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
@@ -124,12 +145,14 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
               {dayTasks.length > 0 && (
                 <div className="space-y-1">
                   {dayTasks.slice(0, 4).map((t) => {
-                    const isOpen = openTaskId === t.id
+                    const isOpen = openTask?.task.id === t.id
                     return (
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setOpenTaskId(isOpen ? null : t.id)}
+                        onClick={(event) => {
+                          setOpenTask(isOpen ? null : { task: t, ...getFloatingPosition(event.currentTarget) })
+                        }}
                         className="block w-full truncate rounded-full border bg-background px-2 py-1 text-left text-[11px] leading-none shadow-sm hover:border-foreground/30"
                         style={{ borderColor: STATUS_COLOR[t.status] ?? '#94a3b8' }}
                         title={t.title}
@@ -145,58 +168,61 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
                   )}
                 </div>
               )}
-
-              {dayTasks.map((t) =>
-                openTaskId === t.id ? (
-                  <div
-                    key={`${t.id}-popover`}
-                    className={`absolute z-50 w-[min(22rem,calc(100vw-2rem))] rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl ${getPopoverPlacement(idx)}`}
-                  >
-                    <div className="flex items-start gap-3">
-                        <span
-                        className="mt-1.5 block h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: STATUS_COLOR[t.status] ?? '#94a3b8' }}
-                        />
-                        <div className="min-w-0">
-                        <p className="text-base font-semibold leading-tight">{t.title}</p>
-                        {t.description ? (
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{t.description}</p>
-                        ) : null}
-                          <p className="mt-3 text-sm text-muted-foreground">{formatTime(t.dueAt)}</p>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {t.assigneeName && (
-                              <span
-                                className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
-                                style={{ backgroundColor: t.assigneeColor ?? '#64748b' }}
-                              >
-                                {t.assigneeName}
-                              </span>
-                            )}
-                            {t.tagName && (
-                              <span
-                                className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
-                                style={{ backgroundColor: t.tagColor ?? '#64748b' }}
-                              >
-                                {t.tagName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      <button
-                        type="button"
-                        onClick={() => setOpenTaskId(null)}
-                        className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Закрыть
-                      </button>
-                      </div>
-                  </div>
-                ) : null,
-              )}
             </div>
           )
         })}
       </div>
+
+      {openTask
+        ? createPortal(
+            <div
+              className="fixed z-[1000] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl"
+              style={{ top: openTask.top, left: openTask.left }}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className="mt-1.5 block h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: STATUS_COLOR[openTask.task.status] ?? '#94a3b8' }}
+                />
+                <div className="min-w-0">
+                  <p className="text-base font-semibold leading-tight">{openTask.task.title}</p>
+                  {openTask.task.description ? (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                      {openTask.task.description}
+                    </p>
+                  ) : null}
+                  <p className="mt-3 text-sm text-muted-foreground">{formatTime(openTask.task.dueAt)}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {openTask.task.assigneeName && (
+                      <span
+                        className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
+                        style={{ backgroundColor: openTask.task.assigneeColor ?? '#64748b' }}
+                      >
+                        {openTask.task.assigneeName}
+                      </span>
+                    )}
+                    {openTask.task.tagName && (
+                      <span
+                        className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
+                        style={{ backgroundColor: openTask.task.tagColor ?? '#64748b' }}
+                      >
+                        {openTask.task.tagName}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenTask(null)}
+                  className="ml-auto text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
