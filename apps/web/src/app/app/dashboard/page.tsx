@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold tracking-tight">Дашборд</h1>
         <p className="text-muted-foreground">
-          Базовая сводка по задачам штаба. Более глубокую аналитику и скрытую воронку добавим в финальной фазе.
+          Сводка по задачам штаба, ближайшим дедлайнам и нагрузке по ответственным.
         </p>
       </div>
 
