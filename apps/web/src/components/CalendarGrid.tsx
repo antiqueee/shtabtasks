@@ -38,6 +38,15 @@ function formatTime(date: Date | null): string {
   }).format(date)
 }
 
+function getPopoverPlacement(index: number): string {
+  const column = index % 7
+  const row = Math.floor(index / 7)
+  const horizontal = column >= 5 ? 'right-2' : 'left-2'
+  const vertical = row >= 4 ? 'bottom-2' : 'top-12'
+
+  return `${horizontal} ${vertical}`
+}
+
 export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
 
@@ -68,9 +77,9 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
   }
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+    <div className="relative rounded-xl border bg-card shadow-sm overflow-visible">
       {/* Weekday headers */}
-      <div className="grid grid-cols-7 border-b">
+      <div className="grid grid-cols-7 overflow-hidden rounded-t-xl border-b">
         {WEEKDAYS.map((d) => (
           <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">
             {d}
@@ -79,7 +88,7 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
       </div>
 
       {/* Calendar cells */}
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 overflow-visible">
         {cells.map((day, idx) => {
           if (!day) {
             return <div key={`empty-${idx}`} className="min-h-20 border-b border-r last:border-r-0 bg-muted/20" />
@@ -118,7 +127,7 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
                     const isOpen = openTaskId === t.id
                     return (
                       <button
-                      key={t.id}
+                        key={t.id}
                         type="button"
                         onClick={() => setOpenTaskId(isOpen ? null : t.id)}
                         className="block w-full truncate rounded-full border bg-background px-2 py-1 text-left text-[11px] leading-none shadow-sm hover:border-foreground/30"
@@ -141,23 +150,23 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
                 openTaskId === t.id ? (
                   <div
                     key={`${t.id}-popover`}
-                    className="absolute left-1 right-1 top-12 z-30 rounded-xl border bg-popover p-3 text-popover-foreground shadow-2xl sm:left-2 sm:right-auto sm:w-80"
+                    className={`absolute z-50 w-[min(22rem,calc(100vw-2rem))] rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl ${getPopoverPlacement(idx)}`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-3">
                         <span
-                        className="mt-1 block h-2.5 w-2.5 shrink-0 rounded-full"
+                        className="mt-1.5 block h-2.5 w-2.5 shrink-0 rounded-full"
                           style={{ backgroundColor: STATUS_COLOR[t.status] ?? '#94a3b8' }}
                         />
                         <div className="min-w-0">
-                        <p className="text-sm font-semibold leading-snug">{t.title}</p>
+                        <p className="text-base font-semibold leading-tight">{t.title}</p>
                         {t.description ? (
-                          <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{t.description}</p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{t.description}</p>
                         ) : null}
-                          <p className="mt-2 text-xs text-muted-foreground">{formatTime(t.dueAt)}</p>
-                          <div className="mt-2 flex flex-wrap gap-1">
+                          <p className="mt-3 text-sm text-muted-foreground">{formatTime(t.dueAt)}</p>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
                             {t.assigneeName && (
                               <span
-                                className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium"
+                                className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
                                 style={{ backgroundColor: t.assigneeColor ?? '#64748b' }}
                               >
                                 {t.assigneeName}
@@ -165,7 +174,7 @@ export function CalendarGrid({ tasks, year, month }: CalendarGridProps) {
                             )}
                             {t.tagName && (
                               <span
-                                className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium"
+                                className="rounded-full px-2.5 py-1 text-xs font-medium text-white"
                                 style={{ backgroundColor: t.tagColor ?? '#64748b' }}
                               >
                                 {t.tagName}
