@@ -257,7 +257,7 @@ export async function getAnalyticsData() {
     dashboard,
     totalImports: imports.length,
     activeImports: imports.filter((item) => item.undoneAt === null).length,
-    extractedTasks: imports.reduce((sum, item) => sum + item.taskCount, 0),
+    extractedTasks: imports.reduce((sum, item) => sum + Number(item.taskCount ?? 0), 0),
     tasksBySource: tasksBySourceRows,
     protocolCount: eventRows.length,
     completionRate:
