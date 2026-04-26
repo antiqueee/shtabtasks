@@ -1,7 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
-import { askAssistantAction, type AssistantAnswerState } from '@/app/app/actions'
+import { useState, useTransition } from 'react'
+import type { AssistantAnswerState } from '@/app/app/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +13,43 @@ const initialState: AssistantAnswerState = {
 }
 
 export function AssistantClient() {
-  const [state, formAction, pending] = useActionState(askAssistantAction, initialState)
+  const [state, setState] = useState(initialState)
+  const [pending, startTransition] = useTransition()
+
+  async function handleSubmit(formData: FormData) {
+    const question = String(formData.get('question') ?? '').trim()
+    if (!question) {
+      setState({
+        question: '',
+        answer: 'Нужен вопрос по загруженным протоколам.',
+        sources: [],
+      })
+      return
+    }
+
+    startTransition(async () => {
+      try {
+        const response = await fetch('/api/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        })
+
+        const data = (await response.json()) as AssistantAnswerState
+        setState({
+          question,
+          answer: data.answer,
+          sources: data.sources ?? [],
+        })
+      } catch {
+        setState({
+          question,
+          answer: 'Не удалось получить ответ ассистента. Попробуй обновить страницу и повторить вопрос.',
+          sources: [],
+        })
+      }
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -25,7 +61,10 @@ export function AssistantClient() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="space-y-4">
+          <form
+            action={handleSubmit}
+            className="space-y-4"
+          >
             <textarea
               name="question"
               className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
