@@ -30,18 +30,24 @@ function randomColor(): string {
 
 const boardStatusSchema = z.enum(['todo', 'in_progress', 'done'])
 
-const nullableUuidSchema = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value ? value : null))
-  .pipe(z.string().uuid().nullable())
+const nullableUuidSchema = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : null))
+    .pipe(z.string().uuid().nullable()),
+)
 
-const nullableTextSchema = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => (value ? value : null))
+const nullableTextSchema = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value : null)),
+)
 
 const taskInputSchema = z.object({
   title: z.string().trim().min(1).max(160),
