@@ -10,10 +10,9 @@ import { SocksProxyAgent } from 'socks-proxy-agent'
 import * as XLSX from 'xlsx'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
-const ownerId = process.env.TELEGRAM_OWNER_ID
+const ownerId = process.env.TELEGRAM_OWNER_ID ?? null
 
 if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set')
-if (!ownerId) throw new Error('TELEGRAM_OWNER_ID is not set')
 
 function parseProxyUrls(): string[] {
   const rawValues = [process.env.SOCKS_PROXY_URLS, process.env.SOCKS_PROXY_URL].filter(Boolean)
@@ -284,14 +283,6 @@ async function downloadBuffer(url: string): Promise<Buffer> {
   throw lastError instanceof Error ? lastError : new Error('Telegram file download failed')
 }
 
-bot.use(async (ctx, next) => {
-  if (ctx.from?.id?.toString() !== ownerId) {
-    await ctx.reply('Доступ ограничен')
-    return
-  }
-  await next()
-})
-
 bot.command('start', async (ctx) => {
   await ctx.reply(
     'Бот штабных задач готов.\nПросто пришли текст задачи или голосовое сообщение.\nЯ создам задачу, определю дедлайн и тег.',
@@ -300,7 +291,7 @@ bot.command('start', async (ctx) => {
 
 bot.command('help', async (ctx) => {
   await ctx.reply(
-    'Что умею:\n• текстовое сообщение → новая задача\n• голосовое сообщение → распознавание и новая задача\n• доступ только для владельца',
+    'Что умею:\n• текстовое сообщение → новая задача\n• голосовое сообщение → распознавание и новая задача\n• файлы .docx/.xlsx/.pdf/.txt → извлечение задач',
   )
 })
 
@@ -430,7 +421,7 @@ bot.catch(async (err) => {
 async function main() {
   const me = await bot.api.getMe()
   console.log(`Bot started: @${me.username}`)
-  console.log(`Owner ID: ${ownerId}`)
+  console.log(`Owner ID: ${ownerId ?? 'not configured'}`)
   await bot.start({
     onStart: (info) => console.log(`Polling started for @${info.username}`),
   })
